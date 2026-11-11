@@ -38,7 +38,7 @@ Exposure references exactly one Building or Unit. Coverage, schedule, and Exposu
 
 Ruleset and Rate Manual versions are pinned when the Quote is created. Bind re-evaluates using those versions. If an immutable version has been retired and is unavailable, bind fails safely; it does not silently use a newer version.
 
-NAICS extension schemas are versioned contracts in [../contracts/naics/](../contracts/naics/). Extension data belongs to an Exposure. Avoid duplicating schedule facts such as the count of Units in extension data unless Rules has a defined business use for that independently supplied value.
+`Exposure.NaicsCode` is a six-digit classification value.
 
 ## Ledger context
 

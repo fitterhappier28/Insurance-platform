@@ -4,7 +4,7 @@ info:
   title: CLP Rules API
   version: 1.0.0
   description: |
-    Stateless eligibility decisions and NAICS Extension validation. Never prices.
+    Stateless eligibility decisions. Never prices.
     Requirements: FR-3, FR-4, FR-13, FR-16. Ruleset: specs/product/rules-and-rating.md.
     POST /v1/decisions is a side-effect-free calculation and does not take an Idempotency-Key.
 servers:
@@ -74,8 +74,7 @@ paths:
                     type: array
                     items:
                       type: object
-                      required: [version, effectiveFrom, naicsSchemas]
+                      required: [version, effectiveFrom]
                       properties:
                         version: { type: string }
                         effectiveFrom: { type: string, format: date }
-                        naicsSchemas: { type: array, items: { type: string } }

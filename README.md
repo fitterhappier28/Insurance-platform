@@ -7,7 +7,7 @@ A focused Commercial Property quote-to-bind architecture exercise. It demonstrat
 | Context | Responsibility | Data |
 | --- | --- | --- |
 | Policy | Account and policy schedule, quote, bind, Booking Status | Own SQL database |
-| Rules | Eligibility and NAICS validation | Immutable versioned rulesets; no quote data |
+| Rules | Eligibility decisions | Immutable versioned rulesets; no quote data |
 | Rating | Price and factor explanation | Immutable versioned rate manuals; no quote data |
 | Ledger | Record and query bound premium | Own append-only SQL database |
 
@@ -20,7 +20,7 @@ This decomposition is intentionally used to demonstrate the target role's techni
 | Area | Contents |
 | --- | --- |
 | [specs/product](specs/product/) | Flow, functional/non-functional requirements, domain data, rating rules |
-| [specs/contracts](specs/contracts/) | OpenAPI contracts, event schemas, NAICS extensions |
+| [specs/contracts](specs/contracts/) | OpenAPI contracts and event schemas |
 | [docs/architecture](docs/architecture/) | C4 views, deployment mapping, operations notes |
 | [docs/adr](docs/adr/) | Architecture decisions and superseded decisions |
 | [specs/traceability.md](specs/traceability.md) | Vacancy skills mapped to scope and evidence |

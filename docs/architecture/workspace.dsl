@@ -10,7 +10,7 @@ workspace "Commercial Lines Platform" "Learning architecture for Commercial Prop
         workflow = component "Quote and bind workflow" "Coordinates Rules and Rating; commits bound revision and outbox atomically." "Application"
         policyStore = component "Policy persistence" "Owns policy state, booking status, idempotency, inbox and outbox." "SQL"
       }
-      rules = container "Rules Service" "Validates NAICS extension and decides eligibility using versioned rulesets." ".NET / ASP.NET Core"
+      rules = container "Rules Service" "Decides eligibility using versioned rulesets." ".NET / ASP.NET Core"
       rating = container "Rating Service" "Prices Exposures and returns factor-level Rate Snapshots from versioned manuals." ".NET / ASP.NET Core"
       ledger = container "Ledger Service" "Appends immutable premium transactions from bound snapshots." ".NET / ASP.NET Core" {
         ledgerApi = component "Ledger API" "Reads premium transactions and reconciliation results." "HTTP"

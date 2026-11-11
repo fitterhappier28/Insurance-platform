@@ -8,9 +8,6 @@ Contracts are written and reviewed before the code that implements them. They wi
 | --- | --- | --- |
 | [openapi/](openapi/) | One OpenAPI file per service | OpenAPI 3.1, JSON Schema 2020-12 |
 | [events/](events/) | Event catalog, CloudEvents envelope, one schema per event type | JSON Schema 2020-12 |
-| [naics/](naics/) | NAICS Extension schemas, owned by Rules | JSON Schema 2020-12 |
-
-Using one schema dialect for APIs, events and extensions keeps one set of validation rules and one validator library.
 
 ## HTTP conventions
 
@@ -40,7 +37,7 @@ Every error is `application/problem+json`:
   "code": "quote-not-bindable",
   "detail": "Revision status is Referred.",
   "traceId": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
-  "errors": [ { "pointer": "/exposures/0/extension/data/unitCount", "code": "required" } ]
+  "errors": [ { "pointer": "/exposures/0/limit", "code": "required" } ]
 }
 ```
 

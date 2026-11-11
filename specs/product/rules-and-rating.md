@@ -14,7 +14,6 @@ Policy flattens each Exposure into a rating and rules input. Building and Locati
 | `coverageCode` | Coverage | `BLDG` |
 | `limit` | Exposure | decimal string, 1 to 25,000,000 |
 | `naicsCode` | Exposure | 6 digits |
-| `extension` | Exposure | `{ schema, data }` |
 | `construction` | Building | `Frame`, `JoistedMasonry`, `NonCombustible`, `MasonryNonCombustible`, `FireResistive` |
 | `yearBuilt` | Building | 1800 to policy effective year |
 | `protectionClass` | Location | 1 to 10 |
@@ -27,16 +26,10 @@ Rules are evaluated for every Exposure. The Decision for the Quote is the most s
 | Code | Outcome | Condition |
 | --- | --- | --- |
 | `D-NAICS-UNSUPPORTED` | Decline | `naicsCode` not in {531110, 722511} |
-| `D-HOOD-SUPPRESSION` | Decline | `722511.v1` and `hoodSuppression` is false |
 | `D-PROTECTION-CLASS` | Decline | `protectionClass` is 10 |
 | `R-BUILDING-AGE` | Refer | `yearBuilt` before 1980 |
-| `R-VACANCY` | Refer | `531110.v1` and `percentVacant` above 25 |
-| `R-RESTAURANT-TENANT` | Refer | `531110.v1` and `hasRestaurantTenant` is true |
-| `R-DEEP-FRY` | Refer | `722511.v1` and `cookingType` is `DeepFry` |
 | `R-LIMIT` | Refer | `limit` above 10,000,000 |
 | `R-PROTECTION-CLASS` | Refer | `protectionClass` is 9 |
-
-Before any rule runs, Rules validates `extension.data` against the schema named in `extension.schema` (see [../contracts/naics/](../contracts/naics/)). The schema must match the NAICS code. A validation failure is `422 validation-failed` with one error per field, not a Decision.
 
 ## Rate Manual CP-RATE-2026.07
 

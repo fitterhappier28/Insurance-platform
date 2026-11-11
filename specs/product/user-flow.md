@@ -14,7 +14,7 @@ USD. Bayview Properties LLC has one commercial building in Tampa, Florida, built
 
 1. Broker creates an Account and its Applicant in Policy.
 2. Broker submits a quote request containing the policy term and schedule. Policy validates ownership and references, creates a draft Policy Revision, then calls Rules and Rating using versioned contracts.
-3. Rules validates the NAICS extension and returns a Decision. Rating independently returns a Rate Snapshot. Policy stores both snapshots with the Quote. A Decline has no price; a Refer has a price but cannot bind in this learning scope.
+3. Rules returns a Decision using the Exposure attributes. Rating independently returns a Rate Snapshot. Policy stores both snapshots with the Quote. A Decline has no price; a Refer has a price but cannot bind in this learning scope.
 4. Broker binds an eligible Quote with an idempotency key. Policy re-evaluates eligibility and price using the versions pinned to the Quote. If unavailable or materially changed, bind fails without changing the Quote. On success, Policy makes the revision immutable and, in one database transaction, saves `policy-bound` to its outbox.
 5. The Policy outbox relay publishes `policy-bound` to Kafka. Delivery is at least once.
 6. Ledger consumes the event. In one local transaction it records the inbox receipt and appends an immutable Premium Transaction with premium lines and the Rating Factors carried in the bound snapshot. A unique business key prevents duplicate booking if the event is republished with a new event id.

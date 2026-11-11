@@ -104,15 +104,6 @@ components:
     Construction:
       type: string
       enum: [Frame, JoistedMasonry, NonCombustible, MasonryNonCombustible, FireResistive]
-    NaicsExtension:
-      type: object
-      additionalProperties: false
-      required: [schema, data]
-      properties:
-        schema: { type: string, pattern: '^naics/\d{6}\.v\d+$', examples: ['naics/531110.v1'] }
-        data:
-          type: object
-          description: Validated by Rules against the named schema in specs/contracts/naics.
     RatedFactor:
       type: object
       additionalProperties: false
@@ -140,7 +131,6 @@ components:
         coverageCode: { type: string, const: BLDG }
         limit: { $ref: '#/components/schemas/Money' }
         naicsCode: { $ref: '#/components/schemas/NaicsCode' }
-        extension: { $ref: '#/components/schemas/NaicsExtension' }
         construction: { $ref: '#/components/schemas/Construction' }
         yearBuilt: { type: integer, minimum: 1800, maximum: 2100 }
         protectionClass: { type: integer, minimum: 1, maximum: 10 }

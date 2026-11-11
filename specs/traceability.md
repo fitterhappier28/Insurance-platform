@@ -21,7 +21,7 @@ This map connects skills from the source vacancy to active learning scope. Statu
 
 | Requirement | Contract/design source | Planned evidence |
 | --- | --- | --- |
-| FR-1 to FR-3: account, schedule, NAICS data | Policy OpenAPI; NAICS schemas; data model | Policy API/domain tests |
+| FR-1 to FR-3: account, schedule, NAICS code | Policy OpenAPI; data model | Policy API/domain tests |
 | FR-4: Decision | Rules OpenAPI; rules-and-rating.md | Rules contract/domain tests |
 | FR-5: Rate Snapshot | Rating OpenAPI; rules-and-rating.md | Rating calculation/contract tests |
 | FR-6 to FR-7: Quote and Bind | Policy OpenAPI; user-flow.md | Policy command and integration tests |

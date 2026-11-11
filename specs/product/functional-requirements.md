@@ -8,7 +8,7 @@ The product flow and reference scenario are defined in [user-flow.md](user-flow.
 | --- | --- | --- | --- |
 | FR-1 | Account and Applicant | Policy | Active |
 | FR-2 | Policy schedule and revisions | Policy | Active |
-| FR-3 | NAICS extension validation | Policy, Rules | Active |
+| FR-3 | Exposure classification | Policy | Active |
 | FR-4 | Eligibility Decision | Rules | Active |
 | FR-5 | Rate Snapshot | Rating | Active |
 | FR-6 | Quote | Policy | Active |
@@ -32,9 +32,9 @@ An Account has one Applicant in this learning scope. Policy owns both, validates
 
 A quote contains a term, Coverages, Locations, Buildings, optional Units, and Exposures. Each Exposure references exactly one Coverage and exactly one Building or Unit on the same revision. A Policy Revision is immutable after bind. MVP creates one revision; endorsements and later revisions are deferred.
 
-## FR-3 NAICS extension validation — Policy, Rules
+## FR-3 Exposure classification — Policy
 
-An Exposure carries a versioned NAICS Extension. Rules validates the schema and returns field-level errors before evaluating eligibility. Policy stores the submitted extension with the revision.
+An Exposure carries a six-digit NAICS code. Policy validates its format; Rules and Rating use the code as an input to their respective versioned eligibility and pricing configuration.
 
 ## FR-4 Eligibility Decision — Rules
 

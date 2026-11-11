@@ -11,7 +11,7 @@ Commercial Lines Platform (CLP): a learning architecture for Commercial Property
 Specs lead, code follows. A change is done when the spec, the contract, the code, the tests and the traceability row agree.
 
 1. Find or write the requirement in [specs/product/](specs/product/). New behaviour gets a new `FR-n` or `NFR-n`; never renumber existing ids.
-2. Update the contract first: OpenAPI in [specs/contracts/openapi/](specs/contracts/openapi/), event schemas in [specs/contracts/events/](specs/contracts/events/), NAICS extensions in [specs/contracts/naics/](specs/contracts/naics/).
+2. Update the contract first: OpenAPI in [specs/contracts/openapi/](specs/contracts/openapi/) and event schemas in [specs/contracts/events/](specs/contracts/events/).
 3. If the change is hard to reverse, surprising, and a real trade-off, add an ADR in [docs/adr/](docs/adr/). Update [docs/architecture/workspace.dsl](docs/architecture/workspace.dsl) and the matching view page when containers, relationships or components change.
 4. Implement test-first. Test names start with the requirement id, for example `FR07_bind_replayed_with_same_key_returns_original_policy`.
 5. Fill the requirement's row in [specs/traceability.md](specs/traceability.md) with the test names.

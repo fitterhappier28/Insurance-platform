@@ -28,9 +28,7 @@ Business language for the Commercial Property quote, bind, and premium-booking l
 
 **Unit**: A separately occupied part of a Building, such as a leased suite. _Avoid_: suite, tenant space.
 
-**Exposure**: The rated unit: one Coverage applied to one Building or Unit, with a limit, NAICS code, and NAICS Extension. _Avoid_: risk, item, rated item.
-
-**NAICS Extension**: Industry-specific attributes an Exposure carries for its NAICS code, defined by a versioned schema. _Avoid_: custom fields, occupancy details.
+**Exposure**: The rated unit: one Coverage applied to one Building or Unit, with a limit and NAICS code. _Avoid_: risk, item, rated item.
 
 ## Eligibility and pricing
 

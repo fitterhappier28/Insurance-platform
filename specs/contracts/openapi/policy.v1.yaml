@@ -285,14 +285,13 @@ components:
     ExposureInput:
       type: object
       additionalProperties: false
-      required: [ref, coverageCode, subjectRef, limit, naicsCode, extension]
+      required: [ref, coverageCode, subjectRef, limit, naicsCode]
       properties:
         ref: { type: string, maxLength: 64 }
         coverageCode: { type: string, const: BLDG }
         subjectRef: { type: string, description: ref of a Building or Unit in this request }
         limit: { $ref: 'common.v1.yaml#/components/schemas/Money' }
         naicsCode: { $ref: 'common.v1.yaml#/components/schemas/NaicsCode' }
-        extension: { $ref: 'common.v1.yaml#/components/schemas/NaicsExtension' }
     Quote:
       type: object
       required: [quoteId, policyId, accountId, revisionNo, status, effectiveFrom, effectiveTo, quotedAt, expiresAt, decision, schedule]
