@@ -8,7 +8,7 @@
 
 **Requirements:** FR-10, FR-13.5, FR-17.3, NFR-10, NFR-11, NFR-12, NFR-15
 
-**Read first:** [ADR-0012](../../../docs/adr/0012-ledger-allocates-and-stores-premium.md), [03-components.md](../../../docs/architecture/03-components.md#booking-algorithm), [allocation rule](../../product/rules-and-rating.md#quota-share-allocation), [ledger.v1.yaml](../../contracts/openapi/ledger.v1.yaml)
+**Read first:** [ADR-0012](../../../docs/adr/0012-ledger-allocates-and-stores-premium.md), [03-ledger-components.md](../../../docs/architecture/03-ledger-components.md#booking-algorithm), [allocation rule](../../product/rules-and-rating.md#quota-share-allocation), [ledger.v1.yaml](../../contracts/openapi/ledger.v1.yaml)
 
 - [ ] Ledger migrations for transaction and line tables; runtime login denied `UPDATE` and `DELETE` on the `ledger` schema, proven by a test that tries (NFR-11).
 - [ ] Consumer group `ledger.booking` books the reference policy: written premium `1410.75`, four Factor Lines, Allocation Lines RENRE `987.53` (lead) and ARCHRE `423.22` (FR-10.2, FR-10.4).

@@ -35,10 +35,12 @@ docs/adr/              architecture decision records
 specs/product/         user flow, requirements, data model, rules and rating
 specs/contracts/       OpenAPI, event schemas, NAICS extension schemas
 specs/implementation/  plan and tickets
-src/AppHost/           .NET Aspire AppHost: the whole local topology as code
-src/Platform/          shared technical libraries (no domain code)
-src/Services/<Name>/   <Name>.Domain, .Application, .Infrastructure, .Api
-tests/                 per-service tests and end-to-end acceptance tests
+backend/               solution, services, platform libraries, tests
+  src/AppHost/         .NET Aspire AppHost: the whole local topology as code
+  src/Platform/        shared technical libraries (no domain code)
+  src/Services/<Name>/ <Name>.Domain, .Application, .Infrastructure, .Api
+  tests/               per-service tests and end-to-end acceptance tests
+harness/               agent operating notes (issue tracker, triage, domain)
 scripts/               walkthrough and operational scripts
 ```
 
@@ -47,7 +49,7 @@ scripts/               walkthrough and operational scripts
 Requires the .NET 10 SDK and Docker Desktop (WSL 2 backend) with about 10 GB of memory available.
 
 ```powershell
-dotnet run --project src/AppHost
+dotnet run --project backend/src/AppHost
 # in another shell, once the dashboard shows all resources healthy:
 ./scripts/walkthrough.ps1
 ```
@@ -66,4 +68,4 @@ The AppHost prints the Aspire dashboard URL (traces, metrics, logs, resource sta
 
 Secrets (SQL Server passwords) are Aspire parameters; on first run they are generated into the AppHost's user secrets, never into the repository.
 
-The stack and scripts are delivered by the tickets in [specs/implementation/](specs/implementation/); until ticket 01 lands, only the documentation exists.
+`dotnet run --project backend/src/AppHost` starts the five services, three SQL Servers, Kafka, Kafka UI and Structurizr. Docker Desktop has to be running. Walkthrough script arrives with ticket 12.

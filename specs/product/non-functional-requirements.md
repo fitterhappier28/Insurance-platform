@@ -71,6 +71,6 @@ Production targets, deferred: SSO federation with tenant from token claims, TLS 
 
 | Id | Requirement |
 | --- | --- |
-| NFR-28 | `dotnet run --project src/AppHost` starts the full stack, with every resource healthy in the Aspire dashboard, on a machine with 10 GB available to Docker. |
+| NFR-28 | `dotnet run --project backend/src/AppHost` starts the full stack, with every resource healthy in the Aspire dashboard, on a machine with 10 GB available to Docker. |
 | NFR-29 | Each service applies its own migrations on start. |
 | NFR-30 | Runbook for replay and dead-letter re-drive lives in [../../docs/architecture/operations.md](../../docs/architecture/operations.md). |

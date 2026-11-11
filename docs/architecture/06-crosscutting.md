@@ -1,28 +1,29 @@
 ﻿# Cross-cutting concepts
 
-How the platform handles concerns that every service shares. Implementations live in `src/Platform/` ([ADR-0011](../adr/0011-shared-platform-libraries.md)).
+How the platform handles concerns that every service shares. Implementations live in `backend/src/Platform/` ([ADR-0011](../adr/0011-shared-platform-libraries.md)).
 
 ## Code layout
 
 ```
-src/
-  AppHost/                   .NET Aspire AppHost: resources, wiring, ports, parameters (ADR-0014)
-  Platform/
-    Platform.Tenancy/        tenant context, header middleware, EF Core tenant filter helpers
-    Platform.Idempotency/    Idempotency-Key middleware and store (messaging.IdempotencyRecord)
-    Platform.Messaging/      CloudEvents envelope, outbox writer and relay, inbox, Kafka producer and consumer host, dead-letter
-    Platform.Web/            problem details, API versioning, contract serving, health, OpenTelemetry wiring (the Aspire ServiceDefaults extension lives here)
-  Services/
-    Policy/   Policy.Domain  Policy.Application  Policy.Infrastructure  Policy.Api
-    Rules/    Rules.Domain   Rules.Application                         Rules.Api
-    Rating/   Rating.Domain  Rating.Application                        Rating.Api
-    Carrier/  Carrier.Domain Carrier.Application Carrier.Infrastructure Carrier.Api
-    Ledger/   Ledger.Domain  Ledger.Application  Ledger.Infrastructure  Ledger.Api
-tests/
-  Architecture.Tests/        dependency rules across all projects (NFR-21)
-  Policy.Tests/ Rules.Tests/ Rating.Tests/ Carrier.Tests/ Ledger.Tests/
-  Platform.Tests/
-  Acceptance.Tests/          end-to-end against the AppHost (Aspire.Hosting.Testing)
+backend/
+  src/
+    AppHost/                 .NET Aspire AppHost: resources, wiring, ports, parameters (ADR-0014)
+    Platform/
+      Platform.Tenancy/      tenant context, header middleware, EF Core tenant filter helpers
+      Platform.Idempotency/  Idempotency-Key middleware and store (messaging.IdempotencyRecord)
+      Platform.Messaging/    CloudEvents envelope, outbox writer and relay, inbox, Kafka producer and consumer host, dead-letter
+      Platform.Web/          problem details, API versioning, contract serving, health, OpenTelemetry wiring (the Aspire ServiceDefaults extension lives here)
+    Services/
+      Policy/   Policy.Domain  Policy.Application  Policy.Infrastructure  Policy.Api
+      Rules/    Rules.Domain   Rules.Application                         Rules.Api
+      Rating/   Rating.Domain  Rating.Application                        Rating.Api
+      Carrier/  Carrier.Domain Carrier.Application Carrier.Infrastructure Carrier.Api
+      Ledger/   Ledger.Domain  Ledger.Application  Ledger.Infrastructure  Ledger.Api
+  tests/
+    Architecture.Tests/      dependency rules across all projects (NFR-21)
+    Policy.Tests/ Rules.Tests/ Rating.Tests/ Carrier.Tests/ Ledger.Tests/
+    Platform.Tests/
+    Acceptance.Tests/        end-to-end against the AppHost (Aspire.Hosting.Testing)
 ```
 
 Rules and Rating have no `Infrastructure` project: they load their version files from the `Api` project's content folder through a port defined in `Application`.

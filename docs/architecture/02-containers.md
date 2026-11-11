@@ -35,6 +35,20 @@ C4Container
   Rel(ledger, kafka, "premium-booked; consumes policy-bound, treaty-version-published")
 ```
 
+## What each box is
+
+| Box | What it is |
+| --- | --- |
+| Policy Service | Owns the Account-to-Exposure hierarchy, the Quote and the bound Policy Revision. Orchestrates Rules and Rating. Records Booking Status after Ledger has booked. |
+| Policy DB | Policy's own SQL Server. Nothing else has its connection string. |
+| Rules Service | Eligibility only. Returns Straight-Through, Refer or Decline. Stateless; the Ruleset is files in the image. Never prices and never stores a business outcome. |
+| Rating Service | Price only, with a factor-level breakdown. Stateless; the Rate Manual is files in the image. Never decides eligibility. |
+| Carrier Service | Carriers, Treaties and immutable effective-dated Treaty Versions. Publishes a version; does not participate in quote or bind. |
+| Carrier DB | Carrier's own SQL Server. |
+| Ledger Service | Copies treaty versions into a read model, allocates bound premium and appends Premium Transactions. Ledger rows are insert-only. |
+| Ledger DB | Ledger's own SQL Server. |
+| Kafka | The only channel between Policy, Carrier and Ledger. Three topics: `clp.policy.v1`, `clp.carrier.v1`, `clp.ledger.v1`, plus dead-letter topics. |
+
 ## Ownership
 
 | Container | Owns (only writer) | Reads from others via | Publishes | Consumes |

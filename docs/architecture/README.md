@@ -8,7 +8,8 @@ The model lives in one file, [workspace.dsl](workspace.dsl) (Structurizr DSL). E
 | --- | --- | --- |
 | [01-system-context.md](01-system-context.md) | 1 Context | Who uses the platform, what does it connect to |
 | [02-containers.md](02-containers.md) | 2 Containers | Which services, which databases, who owns what data, how they talk |
-| [03-components.md](03-components.md) | 3 Components | Inside Policy and Ledger, the two services with the most logic |
+| [03-policy-components.md](03-policy-components.md) | 3 Components | Inside Policy: quote, bind, booking status |
+| [03-ledger-components.md](03-ledger-components.md) | 3 Components | Inside Ledger: treaty read model and premium booking |
 | [04-dynamic-quote-bind-book.md](04-dynamic-quote-bind-book.md) | Dynamic | The reference scenario end to end |
 | [05-deployment.md](05-deployment.md) | Deployment | Aspire AppHost topology and database isolation |
 | [06-crosscutting.md](06-crosscutting.md) | n/a | Tenancy, idempotency, outbox and inbox, versioning, observability, code layout |
@@ -19,7 +20,7 @@ Decisions behind the shape are in [../adr/](../adr/). Requirements are in [../..
 ## Viewing the Structurizr model
 
 ```powershell
-dotnet run --project src/AppHost
+dotnet run --project backend/src/AppHost
 start http://localhost:8086
 ```
 

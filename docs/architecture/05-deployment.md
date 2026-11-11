@@ -2,7 +2,7 @@
 
 Structurizr view: `LocalDeployment`. Requirements: NFR-16, NFR-17, NFR-28. Decision: [ADR-0014](../adr/0014-aspire-apphost-for-local-orchestration.md).
 
-`src/AppHost` defines the whole local topology in C#. `dotnet run --project src/AppHost` starts the service projects as processes, the infrastructure as containers, and the Aspire dashboard.
+`backend/src/AppHost` defines the whole local topology in C#. `dotnet run --project backend/src/AppHost` starts the service projects as processes, the infrastructure as containers, and the Aspire dashboard.
 
 ```mermaid
 C4Deployment
@@ -33,6 +33,17 @@ C4Deployment
   Rel(policy, rules, "HTTP")
   Rel(policy, rating, "HTTP")
 ```
+
+## What each box is
+
+| Box | What it is |
+| --- | --- |
+| Developer workstation | The machine that runs the stack. Needs the .NET 10 SDK and Docker Desktop. |
+| Aspire AppHost | `backend/src/AppHost`. The only place that defines resources, ports, connection strings and start order. Services do not reference Aspire hosting packages. |
+| policy-api … ledger-api | The five service projects, run as processes on ports 5101–5105. They are the same containers as on the [container view](02-containers.md), placed on this machine. |
+| Docker containers | Infrastructure the AppHost starts: three SQL Server instances, Kafka, plus Kafka UI and Structurizr Lite (left off the diagram; they do not carry business traffic). |
+| sql-policy, sql-carrier, sql-ledger | One SQL Server container per stateful service, each with its own database, volume, credentials and 2 GB memory limit. Rules and Rating have no database. |
+| kafka | Single-node Kafka in KRaft mode. Topics from the events catalog, including dead-letter topics, are created at start. |
 
 ## Resources
 

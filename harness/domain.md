@@ -17,7 +17,7 @@ Single-context repo:
 ├── GLOSSARY.md
 ├── docs/adr/
 ├── specs/product/
-└── src/
+└── backend/src/
 ```
 
 ## Use the glossary's vocabulary

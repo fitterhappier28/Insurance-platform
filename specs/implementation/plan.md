@@ -17,7 +17,7 @@ Spec-driven, test-first, one ticket at a time per branch (workflow in [AGENTS.md
 - [ ] Responses validate against the OpenAPI file; produced events validate against their JSON Schema.
 - [ ] Architecture tests pass (no forbidden references, no cross-service projects, tenant filters on every entity).
 - [ ] `dotnet build` has no warnings; `dotnet test` (excluding Acceptance) passes.
-- [ ] `dotnet run --project src/AppHost` starts with every resource healthy.
+- [ ] `dotnet run --project backend/src/AppHost` starts with every resource healthy.
 - [ ] Specs, contracts, `workspace.dsl` and view pages updated if behaviour or structure changed; ADR added if the change meets the ADR bar.
 - [ ] [traceability.md](../traceability.md) rows updated.
 

@@ -75,7 +75,7 @@ Test names start with the criterion id (`FR07_3_...`). Fill the Tests column as 
 | FR-10 Booking | 09 | Ledger.Tests, Acceptance.Tests | | planned |
 | FR-11 Booking Status | 10 | Policy.Tests, Acceptance.Tests | | planned |
 | FR-12 Reconciliation | 10 | Policy.Tests, Ledger.Tests | | planned |
-| FR-13 Tenancy | 01, 04, 09, 12 | Platform.Tests, Acceptance.Tests | | planned |
+| FR-13 Tenancy | 01, 04, 09, 12 | Platform.Tests, Acceptance.Tests | FR13_missing_tenant_returns_tenant_required, FR13_unknown_tenant_returns_tenant_unknown | in-progress |
 | FR-14 Idempotent commands | 04 | Platform.Tests, Policy.Tests | | planned |
 | FR-15 Event publication and consumption | 06, 08, 11 | Platform.Tests, Ledger.Tests | | planned |
 | FR-16 Versioned contracts | 01 and each service ticket | each service's contract tests | | planned |
@@ -83,18 +83,18 @@ Test names start with the criterion id (`FR07_3_...`). Fill the Tests column as 
 | NFR-1 to NFR-4 Performance | 12 | Acceptance.Tests | | planned |
 | NFR-5 to NFR-7 Resilience | 11 | Acceptance.Tests | | planned |
 | NFR-8 Sync call resilience | 05 | Policy.Tests | | planned |
-| NFR-9 Health | 01 | Acceptance.Tests | | planned |
+| NFR-9 Health | 01 | Acceptance.Tests | NFR09_health_live_and_ready_do_not_require_a_tenant, NFR09_health_ready_returns_200 | in-progress |
 | NFR-10 Money precision | 02, 09 | Rating.Tests, Ledger.Tests | | planned |
 | NFR-11 Ledger insert-only | 09 | Ledger.Tests | | planned |
 | NFR-12 Reconstruction | 09, 10 | Ledger.Tests | | planned |
 | NFR-13 Immutability | 06, 07 | Carrier.Tests, Policy.Tests | | planned |
 | NFR-14 Timestamps and effective dates | 05, 06, 09 | per service | | planned |
 | NFR-15 Correlation | 09 | Acceptance.Tests | | planned |
-| NFR-16, NFR-17 Database isolation | 01 | Architecture.Tests, Acceptance.Tests | | planned |
+| NFR-16, NFR-17 Database isolation | 01 | Architecture.Tests, Acceptance.Tests | NFR16_each_database_resource_has_exactly_one_referencing_service, NFR17_login_from_one_instance_is_rejected_by_another | in-progress |
 | NFR-18 Tenant isolation | 12 | Acceptance.Tests | | planned |
 | NFR-19, NFR-20 Secrets, PII in logs | 01, 04 | review, Policy.Tests | | planned |
-| NFR-21 Architecture rules | 01 | Architecture.Tests | | planned |
-| NFR-22 Contract tests | 01 | each service | | planned |
+| NFR-21 Architecture rules | 01 | Architecture.Tests | NFR21_domain_projects_reference_the_bcl_only, NFR21_application_projects_reference_only_their_domain, NFR21_services_do_not_reference_each_other, NFR21_platform_does_not_reference_a_service_or_domain_type, NFR21_only_the_apphost_references_aspire_hosting | in-progress |
+| NFR-22 Contract tests | 01 | each service | NFR22 via FR13_missing_tenant_returns_tenant_required (problem body against the operation schema) | in-progress |
 | NFR-23 Unknown-field tolerance | 11 | Ledger.Tests | | planned |
 | NFR-24 Image per service | 01 | PublishContainer build | | planned |
 | NFR-25 to NFR-27 Observability | 01, 09 | review, Acceptance.Tests | | planned |

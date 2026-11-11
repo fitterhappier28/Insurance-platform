@@ -1,10 +1,8 @@
-# Components
+# Components: Policy Service
 
-Structurizr views: `PolicyComponents`, `LedgerComponents`. Rules, Rating and Carrier are simple enough not to need a component view.
+Structurizr view: `PolicyComponents`. Rules, Rating and Carrier are simple enough not to need a component view: each is an HTTP API over a domain model, with no database and no consumers.
 
 Every service uses the same layering: `Api` depends on `Application`, `Application` depends on `Domain` and on ports it defines, `Infrastructure` implements those ports. `Domain` depends on nothing outside the BCL (enforced by architecture tests, NFR-21).
-
-## Policy Service
 
 ```mermaid
 C4Component
@@ -49,7 +47,24 @@ C4Component
   Rel(bookingConsumer, kafka, "clp.ledger.v1")
 ```
 
-Project mapping:
+## What each box is
+
+| Box | Role |
+| --- | --- |
+| Policy HTTP API | The only public entry. Versioned `/v1` routes, `X-Tenant-Id`, `Idempotency-Key` on state-changing posts, problem details for errors. |
+| Quote use case | Builds Policy Revision 1 from the schedule, asks Rules then Rating, stores the Decision and Rate Snapshot, and enqueues `policy-quoted`. |
+| Bind use case | Re-runs Rules and Rating, assigns the policy number, binds the revision, and enqueues `policy-bound` in the same SQL transaction as the bind. |
+| Booking status consumer | Reads `premium-booked` and sets Booking Status on the bound revision. Idempotent via the inbox. |
+| Reconciliation query | Lists bound revisions whose Booking Status is still Pending, so an operator can see bookings that have not caught up. |
+| Policy domain model | Account, Policy, Policy Revision and the Location, Building, Unit, Coverage, Exposure hierarchy. Bound revisions are immutable. No EF, Kafka or ASP.NET. |
+| Rules client / Rating client | Typed HTTP clients. Timeout, retry and circuit breaker live here so the use cases stay free of transport. |
+| Policy persistence | EF Core DbContext: tenant query filters, outbox, inbox, idempotency. The only component that talks to Policy DB. |
+| Outbox relay | Hosted service. Publishes unsent outbox rows to `clp.policy.v1` in order, then marks them published. Request handlers never publish to Kafka. |
+| Rules Service, Rating Service | Outside this boundary. Policy calls them synchronously because the broker is waiting for a Decision and a price. |
+| Policy DB | This service's own SQL Server. Accounts, policies, revisions, decisions, rate snapshots, outbox, inbox, idempotency. |
+| Kafka | The event log. The relay writes `policy-quoted` and `policy-bound`; the booking consumer reads `premium-booked`. |
+
+## Project mapping
 
 | Component | Project |
 | --- | --- |
@@ -58,42 +73,3 @@ Project mapping:
 | Policy domain model | `Policy.Domain` |
 | Rules and Rating clients, persistence, consumer host | `Policy.Infrastructure` |
 | Outbox relay, inbox, idempotency, tenancy | `Platform.*` |
-
-## Ledger Service
-
-```mermaid
-C4Component
-  title Components: Ledger Service
-
-  ContainerDb_Ext(ledgerDb, "Ledger DB")
-  ContainerQueue_Ext(kafka, "Kafka")
-
-  Container_Boundary(ledger, "Ledger Service") {
-    Component(api, "Ledger HTTP API", "Minimal APIs", "Transactions, self-check")
-    Component(treatyConsumer, "Treaty consumer", "Kafka consumer", "Maintains treaty read model")
-    Component(policyBoundConsumer, "Policy-bound consumer", "Kafka consumer", "Retries, then dead-letters")
-    Component(booking, "Booking use case", "Application", "Effective Treaty Version, append transaction")
-    Component(domain, "Ledger domain model", "Domain", "Transaction, lines, allocation, rounding")
-    Component(persistence, "Ledger persistence", "EF Core", "Insert-only tables, read model, inbox, outbox")
-    Component(relay, "Outbox relay", "Platform.Messaging", "Publishes premium-booked")
-  }
-
-  Rel(api, persistence, "Reads")
-  Rel(treatyConsumer, kafka, "clp.carrier.v1")
-  Rel(treatyConsumer, persistence, "Treaty version with inbox row")
-  Rel(policyBoundConsumer, kafka, "clp.policy.v1")
-  Rel(policyBoundConsumer, booking, "Book")
-  Rel(booking, domain, "Builds transaction and allocation")
-  Rel(booking, persistence, "Appends with inbox and outbox rows, one transaction")
-  Rel(persistence, ledgerDb, "TDS")
-  Rel(relay, ledgerDb, "Reads outbox")
-  Rel(relay, kafka, "clp.ledger.v1")
-```
-
-### Booking algorithm
-
-1. Inbox check for `(ledger.policy-bound, eventId)`. Seen: acknowledge.
-2. Business key check for `(tenantId, policyId, revisionNo, NewBusiness)`. Exists: record inbox row, acknowledge.
-3. Select the tenant's Treaty Version for `CP` with the latest `effectiveFrom` on or before the policy `effectiveFrom`. None: throw a retryable error (retries, then dead-letter).
-4. For each Exposure: premium line, Factor Lines from the event, Allocation Lines per [the allocation rule](../../specs/product/rules-and-rating.md#quota-share-allocation).
-5. Insert transaction, lines, inbox row, `AggregateSequence` increment and `premium-booked` outbox row in one SQL transaction.

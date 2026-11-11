@@ -41,6 +41,10 @@ C4Dynamic
   Rel(financeAnalyst, ledger, "GET transactions")
 ```
 
+The numbered arrows are one walk of the reference scenario, not a second architecture. Treaty publication happens first so Ledger already holds the Treaty Version when `policy-bound` arrives. Quote and bind are synchronous HTTP through Policy, Rules and Rating. Booking is asynchronous: Policy commits the bind, the outbox relay publishes, Ledger appends the Premium Transaction, then Policy marks Booking Status Booked.
+
+The sequence diagram below is the same walk with return values filled in (Decision, premium `1410.75`, allocation). It is the readable form of the C4 dynamic view.
+
 ## Sequence
 
 ```mermaid

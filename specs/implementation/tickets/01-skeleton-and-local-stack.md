@@ -1,10 +1,10 @@
 # 01: Skeleton and local stack
 
-**What to build:** `dotnet run --project src/AppHost` starts five healthy services, three SQL Servers, Kafka with its topics and the tooling resources, all visible in the Aspire dashboard. Each service serves its contract and rejects requests without a valid tenant. Architecture tests guard the layering and the database wiring from the first commit.
+**What to build:** `dotnet run --project backend/src/AppHost` starts five healthy services, three SQL Servers, Kafka with its topics and the tooling resources, all visible in the Aspire dashboard. Each service serves its contract and rejects requests without a valid tenant. Architecture tests guard the layering and the database wiring from the first commit.
 
 **Blocked by:** 00
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 **Requirements:** FR-13.1, FR-16.1, FR-16.3, NFR-9, NFR-16, NFR-17, NFR-19, NFR-21, NFR-22, NFR-24 to NFR-29
 

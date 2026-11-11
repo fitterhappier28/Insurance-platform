@@ -39,3 +39,15 @@ C4Context
 | | AMS connectivity, third-party enrichment, FCRA credit |
 
 Each planned item has a row in [../../specs/traceability.md](../../specs/traceability.md).
+
+## What each box is
+
+| Box | What it is |
+| --- | --- |
+| Broker | A person at a producing agency. Creates Accounts, requests Quotes and binds Policies. Talks only to Policy. |
+| Treaty administrator | Maintains the tenant's quota-share treaties and publishes Treaty Versions. Talks only to Carrier. |
+| Finance analyst | Reads booked premium and the carrier allocation. Talks only to Ledger. Does not bind and does not change the ledger. |
+| Commercial Lines Platform | This system: quote, bind and premium booking for Commercial Property, isolated per Tenant. The next page opens it into services. |
+| Identity provider | Planned. The MVP trusts `X-Tenant-Id` at the gateway boundary and does not validate tokens. |
+| Agency management systems | Planned. Policy download to IVANS and EZLynx is out of the MVP. |
+| Reinsurance carriers | Renaissance Re and Arch Re as organisations that will receive bordereaux. In the MVP they exist only as Carrier records and treaty shares; nothing is sent to them. |

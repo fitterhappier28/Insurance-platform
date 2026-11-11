@@ -97,7 +97,7 @@
 
         local = deploymentEnvironment "Local" {
             deploymentNode "Developer workstation" ".NET 10 SDK, Docker Desktop" "" {
-                deploymentNode "Aspire AppHost" "dotnet run --project src/AppHost; also hosts the Aspire dashboard" ".NET Aspire" {
+                deploymentNode "Aspire AppHost" "dotnet run --project backend/src/AppHost; also hosts the Aspire dashboard" ".NET Aspire" {
                     deploymentNode "policy-api" "port 5101" ".NET process" {
                         containerInstance clp.policy
                     }
