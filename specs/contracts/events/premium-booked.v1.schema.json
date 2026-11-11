@@ -9,7 +9,7 @@
     "source": { "const": "urn:clp:ledger" },
     "data": {
       "type": "object",
-      "required": ["aggregateSeq", "transactionId", "transactionType", "policyId", "policyNumber", "revisionNo", "writtenPremium", "currency", "treatyVersionId", "bookedAt", "allocations"],
+      "required": ["aggregateSeq", "transactionId", "transactionType", "policyId", "policyNumber", "revisionNo", "writtenPremium", "currency", "bookedAt"],
       "properties": {
         "aggregateSeq": { "type": "integer", "minimum": 1 },
         "transactionId": { "$ref": "envelope.schema.json#/$defs/uuid" },
@@ -19,20 +19,7 @@
         "revisionNo": { "type": "integer", "minimum": 1 },
         "writtenPremium": { "$ref": "envelope.schema.json#/$defs/money" },
         "currency": { "const": "USD" },
-        "treatyVersionId": { "$ref": "envelope.schema.json#/$defs/uuid" },
-        "bookedAt": { "type": "string", "format": "date-time" },
-        "allocations": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object",
-            "required": ["carrierCode", "amount"],
-            "properties": {
-              "carrierCode": { "$ref": "envelope.schema.json#/$defs/carrierCode" },
-              "amount": { "$ref": "envelope.schema.json#/$defs/money" }
-            }
-          }
-        }
+        "bookedAt": { "type": "string", "format": "date-time" }
       }
     }
   }

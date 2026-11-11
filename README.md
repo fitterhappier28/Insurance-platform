@@ -1,71 +1,51 @@
-# Commercial Lines Platform (CLP)
+# Commercial Lines Platform (learning project)
 
-MVP of a Commercial Property quote-to-bind platform. A broker quotes and binds a policy for a commercial building; the bound premium is booked to an immutable Premium Ledger and allocated across reinsurance carriers under the tenant's quota-share treaty.
+A focused Commercial Property quote-to-bind architecture exercise. It demonstrates domain boundaries, separate eligibility and pricing, versioned contracts, idempotent commands, Kafka integration through transactional outbox/inbox, and an immutable premium record with factor-level traceability.
 
-Five services, each owning its data:
+## Contexts and ownership
 
-| Service | Responsibility | Storage |
+| Context | Responsibility | Data |
 | --- | --- | --- |
-| Policy | Account and policy hierarchy, quote, bind, booking status | own SQL Server |
-| Rules | Eligibility: straight-through, refer, decline | stateless, versioned ruleset files |
-| Rating | Price only, factor-level breakdown | stateless, versioned rate manual files |
-| Carrier | Carriers, quota-share treaties and their versions | own SQL Server |
-| Ledger | Immutable premium, factor and allocation lines | own SQL Server |
+| Policy | Account and policy schedule, quote, bind, Booking Status | Own SQL database |
+| Rules | Eligibility and NAICS validation | Immutable versioned rulesets; no quote data |
+| Rating | Price and factor explanation | Immutable versioned rate manuals; no quote data |
+| Ledger | Record and query bound premium | Own append-only SQL database |
 
-Services talk synchronously over versioned HTTP APIs (OpenAPI 3.1) on the quote path and asynchronously over Kafka (transactional outbox, idempotent inbox) everywhere else. Every request and event is tenant-scoped. The local stack is orchestrated by .NET Aspire.
+Policy calls Rules and Rating over HTTP during quote and bind. After bind, Policy publishes `policy-bound` through its transactional outbox. Ledger consumes it from Kafka and records the financial transaction. See [the user flow](specs/product/user-flow.md) and [architecture views](docs/architecture/README.md).
 
-## Where things are
+This decomposition is intentionally used to demonstrate the target role's technical skills. It is not a claim that every context must be an independently deployed production microservice.
 
-| Need | Go to |
+## Repository map
+
+| Area | Contents |
 | --- | --- |
-| Domain language | [GLOSSARY.md](GLOSSARY.md) |
-| What we build and why | [specs/product/](specs/product/) |
-| API and event contracts | [specs/contracts/](specs/contracts/) |
-| Architecture (C4) | [docs/architecture/](docs/architecture/) |
-| Decisions | [docs/adr/](docs/adr/) |
-| Requirement to test mapping | [specs/traceability.md](specs/traceability.md) |
-| Implementation plan and tickets | [specs/implementation/](specs/implementation/) |
-| Rules for contributors and agents | [AGENTS.md](AGENTS.md) |
+| [specs/product](specs/product/) | Flow, functional/non-functional requirements, domain data, rating rules |
+| [specs/contracts](specs/contracts/) | OpenAPI contracts, event schemas, NAICS extensions |
+| [docs/architecture](docs/architecture/) | C4 views, deployment mapping, operations notes |
+| [docs/adr](docs/adr/) | Architecture decisions and superseded decisions |
+| [specs/traceability.md](specs/traceability.md) | Vacancy skills mapped to scope and evidence |
+| [specs/implementation](specs/implementation/) | Learning implementation plan |
+| [GLOSSARY.md](GLOSSARY.md) | Domain vocabulary |
 
-## Repository layout
+## Technology direction
 
-```
-docs/architecture/     C4 model (Structurizr DSL) and rendered views
-docs/adr/              architecture decision records
-specs/product/         user flow, requirements, data model, rules and rating
-specs/contracts/       OpenAPI, event schemas, NAICS extension schemas
-specs/implementation/  plan and tickets
-backend/               solution, services, platform libraries, tests
-  src/AppHost/         .NET Aspire AppHost: the whole local topology as code
-  src/Platform/        shared technical libraries (no domain code)
-  src/Services/<Name>/ <Name>.Domain, .Application, .Infrastructure, .Api
-  tests/               per-service tests and end-to-end acceptance tests
-harness/               agent operating notes (issue tracker, triage, domain)
-scripts/               walkthrough and operational scripts
-```
+The code direction is .NET, SQL Server, Kafka-compatible messaging, OpenAPI 3.1, JSON Schema, and OpenTelemetry. Aspire is for local orchestration. [The deployment view](docs/architecture/05-deployment.md) maps the design to possible Azure services and identifies decisions still requiring validation; no production Azure environment is implied.
 
-## Running locally
+See [AGENTS.md](AGENTS.md) for repository workflow and commands.
 
-Requires the .NET 10 SDK and Docker Desktop (WSL 2 backend) with about 10 GB of memory available.
+## Run locally
+
+Requires the .NET 10 SDK and Docker Desktop. Start the local topology with:
 
 ```powershell
 dotnet run --project backend/src/AppHost
-# in another shell, once the dashboard shows all resources healthy:
-./scripts/walkthrough.ps1
 ```
 
-The AppHost prints the Aspire dashboard URL (traces, metrics, logs, resource state). Service ports are fixed:
-
-| Resource | URL |
+| Context | Local API |
 | --- | --- |
-| Policy API | http://localhost:5101/swagger |
-| Rules API | http://localhost:5102/swagger |
-| Rating API | http://localhost:5103/swagger |
-| Carrier API | http://localhost:5104/swagger |
-| Ledger API | http://localhost:5105/swagger |
-| Kafka UI | http://localhost:8085 |
-| C4 model (Structurizr) | http://localhost:8086 |
-
-Secrets (SQL Server passwords) are Aspire parameters; on first run they are generated into the AppHost's user secrets, never into the repository.
-
-`dotnet run --project backend/src/AppHost` starts the five services, three SQL Servers, Kafka, Kafka UI and Structurizr. Docker Desktop has to be running. Walkthrough script arrives with ticket 12.
+| Policy | `http://localhost:5101/swagger` |
+| Rules | `http://localhost:5102/swagger` |
+| Rating | `http://localhost:5103/swagger` |
+| Ledger | `http://localhost:5104/swagger` |
+| Kafka UI | `http://localhost:8085` |
+| Structurizr | `http://localhost:8086` |

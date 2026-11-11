@@ -26,8 +26,6 @@ When your output names a domain concept (ticket title, test name, class name, do
 
 If the concept you need isn't in the glossary, either you are inventing language the project doesn't use (reconsider) or there's a real gap (add the term, without implementation detail).
 
-## Flag ADR conflicts
+## Keep decisions aligned
 
-If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
-
-> _Contradicts ADR-0006 (event-carried treaty state), but worth reopening because..._
+Check the ADR index for decisions that still apply to the active four-context quote, bind, and booking flow. Do not reference removed decisions or scope that is no longer present in the glossary.

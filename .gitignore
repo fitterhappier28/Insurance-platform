@@ -1,5 +1,6 @@
 # Reference material, kept locally only
 .agents/
+skills-lock.json
 specs/prerequisites/
 
 # Local environment

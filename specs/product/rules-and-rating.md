@@ -1,6 +1,6 @@
 # Rules and rating
 
-Status: accepted, MVP scope. Ruleset `CP-RULES-2026.07`, Rate Manual `CP-RATE-2026.07`.
+Status: proposed learning fixture. The scenario values, rates, factors, and eligibility thresholds below are invented examples for demonstrating deterministic Rules/Rating contracts. They are not actuarial guidance or an approved underwriting appetite.
 
 Rules decides eligibility and never prices. Rating prices and never decides eligibility. Both are stateless: they load their published, immutable version files at start-up and keep no business data.
 
@@ -87,15 +87,3 @@ Reference scenario Exposure: limit 500,000, JoistedMasonry, protection class 5, 
 Effective rate 0.28215 per 100. Written Premium 1,410.75.
 
 Alternate flow A2 (built 1972): building age factor 1.20, premium 1,567.50.
-
-## Quota-share allocation
-
-Ledger allocates each Exposure's premium across the Treaty Version's Carriers:
-
-1. Every non-lead Carrier gets `premium * share`, rounded toward zero to the cent.
-2. The Lead Carrier gets the premium minus the sum of the non-lead amounts.
-3. Lead Carrier is the largest share; on a tie, the alphabetically first carrier code.
-
-Allocation Lines always sum exactly to the Exposure premium.
-
-Reference: 1,410.75 at 70/30. Arch Re 30% = 423.225, rounded toward zero to 423.22. Renaissance Re (lead) = 1,410.75 - 423.22 = 987.53.

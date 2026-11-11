@@ -4,7 +4,7 @@ Guidance for anyone, human or agent, changing this repository. Read this first, 
 
 ## What this is
 
-Commercial Lines Platform (CLP): Commercial Property quote, bind and premium booking across five .NET services (Policy, Rules, Rating, Carrier, Ledger) on SQL Server and Kafka, orchestrated locally by a .NET Aspire AppHost. See [README.md](README.md).
+Commercial Lines Platform (CLP): a learning architecture for Commercial Property quote, bind, and premium booking across four contexts (Policy, Rules, Rating, Ledger). See [README.md](README.md).
 
 ## Spec-driven workflow
 
@@ -25,11 +25,11 @@ Source-of-truth order when documents disagree: contracts, then product specs, th
 
 - A service reads and writes only its own database. No cross-service SQL, no shared tables, no shared connection strings.
 - `*.Domain` projects reference nothing but the BCL. No EF Core, Kafka, ASP.NET or `Platform.*` packages in a domain project.
-- `src/Platform/*` holds technical code only. No domain types (policy, premium, treaty, exposure) in Platform.
+- `backend/src/Platform/*` holds technical code only. No domain types (policy, premium, exposure) in Platform.
 - State change and outbox insert commit in one SQL transaction. Never publish to Kafka from a request handler.
 - Every consumer is idempotent: inbox row plus effect in one transaction, plus a business unique key where one exists.
 - Ledger rows are insert-only. Corrections are new transactions. No `UPDATE` or `DELETE` on ledger tables.
-- Published treaty versions and bound policy revisions are immutable.
+- Bound Policy Revisions and Premium Transactions are immutable.
 - Money is `decimal` in C#, `decimal(19,4)` in SQL, a string in JSON. Never `double` or `float`. Rounding rules live in [specs/product/rules-and-rating.md](specs/product/rules-and-rating.md).
 - Every request carries `X-Tenant-Id`; every row and event carries `tenantId`; every query filters by it.
 - Every state-changing `POST` requires `Idempotency-Key` (calculations `/v1/decisions` and `/v1/rates` are exempt).
@@ -39,8 +39,8 @@ Source-of-truth order when documents disagree: contracts, then product specs, th
 ## Conventions
 
 - .NET 10, C# latest, nullable enabled, warnings as errors.
-- Local topology (resources, wiring, ports, parameters) is defined only in `src/AppHost`. Services read configuration and connection strings; they do not reference Aspire hosting packages.
-- Service layout: `src/Services/<Name>/<Name>.Domain`, `.Application`, `.Infrastructure`, `.Api`. Tests in `tests/<Name>.Tests`.
+- Local topology (resources, wiring, ports, parameters) is defined only in `backend/src/AppHost`. Services read configuration and connection strings; they do not reference Aspire hosting packages.
+- Service layout: `backend/src/Services/<Name>/<Name>.Domain`, `.Application`, `.Infrastructure`, `.Api`. Tests in `backend/tests/<Name>.Tests`.
 - Minimal APIs with `Asp.Versioning`, problem details for every error.
 - EF Core migrations live in `<Name>.Infrastructure`; each service migrates its own database on start.
 - Integration tests use Testcontainers (SQL Server, Kafka). End-to-end tests in `tests/Acceptance.Tests` start the stack through `Aspire.Hosting.Testing`.
@@ -49,10 +49,10 @@ Source-of-truth order when documents disagree: contracts, then product specs, th
 ## Commands
 
 ```powershell
-dotnet build InsurancePlatform.sln
-dotnet test InsurancePlatform.sln --filter "Category!=Acceptance"
-dotnet run --project src/AppHost
-dotnet test tests/Acceptance.Tests
+dotnet build backend/InsurancePlatform.sln
+dotnet test backend/InsurancePlatform.sln --filter "Category!=Acceptance"
+dotnet run --project backend/src/AppHost
+dotnet test backend/tests/Acceptance.Tests
 ./scripts/walkthrough.ps1
 ```
 
@@ -60,12 +60,12 @@ dotnet test tests/Acceptance.Tests
 
 ### Issue tracker
 
-Tickets are markdown files in `specs/implementation/tickets/`. See `docs/agents/issue-tracker.md`.
+Tickets are markdown files in `specs/implementation/tickets/`. See `harness/issue-tracker.md`.
 
 ### Triage labels
 
-Default five-role vocabulary as a `Status:` line. See `docs/agents/triage-labels.md`.
+Default five-role vocabulary as a `Status:` line. See `harness/triage-labels.md`.
 
 ### Domain docs
 
-Single-context: root `GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.
+Single-context: root `GLOSSARY.md` and `docs/adr/`. See `harness/domain.md`.

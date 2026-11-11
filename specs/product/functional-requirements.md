@@ -1,218 +1,89 @@
 # Functional requirements
 
-Status: accepted, MVP scope. Ids are stable; never renumber. Tests are named after the criterion they prove, for example `FR07_3_...`.
+Status: proposed learning scope. IDs remain stable; retired scope is marked deferred rather than renumbered.
 
-Sources: `V-n` is a vacancy ownership item and `P-n` a platform requirement, both listed in [../traceability.md](../traceability.md). Scenario values come from [user-flow.md](user-flow.md); pricing and eligibility from [rules-and-rating.md](rules-and-rating.md).
+The product flow and reference scenario are defined in [user-flow.md](user-flow.md). Requirements focus on architecture skills from the target role: commercial data, Rules/Rating separation, contract-first services, event-driven integration, and financial traceability.
 
-| Id | Title | Owner |
-| --- | --- | --- |
-| FR-1 | Account and Applicant | Policy |
-| FR-2 | Policy schedule | Policy |
-| FR-3 | NAICS Extensions | Rules, Policy |
-| FR-4 | Decision | Rules |
-| FR-5 | Rating | Rating |
-| FR-6 | Quote | Policy |
-| FR-7 | Bind | Policy |
-| FR-8 | Treaties | Carrier |
-| FR-9 | Treaty read model | Ledger |
-| FR-10 | Booking | Ledger |
-| FR-11 | Booking Status | Policy |
-| FR-12 | Reconciliation | Policy, Ledger |
-| FR-13 | Tenancy | all |
-| FR-14 | Idempotent commands | all |
-| FR-15 | Event publication and consumption | Policy, Carrier, Ledger |
-| FR-16 | Versioned contracts | all |
-| FR-17 | Read endpoints | Policy, Carrier, Ledger |
+| Id | Requirement | Owner | Scope |
+| --- | --- | --- | --- |
+| FR-1 | Account and Applicant | Policy | Active |
+| FR-2 | Policy schedule and revisions | Policy | Active |
+| FR-3 | NAICS extension validation | Policy, Rules | Active |
+| FR-4 | Eligibility Decision | Rules | Active |
+| FR-5 | Rate Snapshot | Rating | Active |
+| FR-6 | Quote | Policy | Active |
+| FR-7 | Bind | Policy | Active |
+| FR-8 | Retired identifier | — | Not in scope |
+| FR-9 | Retired identifier | — | Not in scope |
+| FR-10 | Premium booking | Ledger | Active |
+| FR-11 | Booking Status | Policy | Active |
+| FR-12 | Reconciliation | Policy, Ledger | Active |
+| FR-13 | Tenant isolation | All | Active |
+| FR-14 | Idempotent commands | Stateful services | Active |
+| FR-15 | Event publication and consumption | Policy, Ledger | Active |
+| FR-16 | Versioned API and event contracts | All | Active |
+| FR-17 | Read endpoints | Policy, Ledger | Active |
 
-## Policy service
+## FR-1 Account and Applicant — Policy
 
-### FR-1 Account and Applicant
+An Account has one Applicant in this learning scope. Policy owns both, validates FEIN format, and scopes reads by tenant.
 
-Source: V-4.
+## FR-2 Policy schedule and revisions — Policy
 
-1. A broker creates an Account with exactly one Applicant (legal name, FEIN, mailing address). Response `201` with `accountId`.
-2. An Account is readable by id within the same tenant.
-3. FEIN format is `NN-NNNNNNN`; anything else is `422 validation-failed`.
+A quote contains a term, Coverages, Locations, Buildings, optional Units, and Exposures. Each Exposure references exactly one Coverage and exactly one Building or Unit on the same revision. A Policy Revision is immutable after bind. MVP creates one revision; endorsements and later revisions are deferred.
 
-### FR-2 Policy schedule
+## FR-3 NAICS extension validation — Policy, Rules
 
-Source: V-4.
+An Exposure carries a versioned NAICS Extension. Rules validates the schema and returns field-level errors before evaluating eligibility. Policy stores the submitted extension with the revision.
 
-1. A quote request carries the policy term and a schedule: one or more Locations, each with one or more Buildings, each with zero or more Units; one or more Coverages; one or more Exposures.
-2. Every Exposure references one Coverage by code and exactly one Building or Unit on the same schedule. Dangling references are `422 validation-failed`.
-3. Every Exposure carries a limit, a NAICS code and a NAICS Extension (`schema`, `data`).
-4. The schedule is stored as Policy Revision 1 of a new Policy, with `effectiveFrom` and `effectiveTo` equal to the policy term. The term is 1 to 18 months; the effective date is no earlier than today.
-5. The only Coverage code in MVP is `BLDG`. Deductibles are 1,000, 2,500, 5,000, 10,000 or 25,000.
+## FR-4 Eligibility Decision — Rules
 
-### FR-3 NAICS Extensions
+Rules evaluates every Exposure and returns the most severe outcome plus all reason codes. Outcomes are Straight-Through, Refer, and Decline. Rules owns immutable versioned rulesets and stores no per-quote business state. It never calculates premium.
 
-Source: V-4.
+## FR-5 Rate Snapshot — Rating
 
-1. Each supported NAICS code has one or more versioned extension schemas in [../contracts/naics/](../contracts/naics/). MVP: `531110.v1`, `722511.v1`.
-2. An Exposure's `extension.schema` must belong to its NAICS code.
-3. Rules validates `extension.data` against the schema; failures return `422 validation-failed` with a JSON pointer per invalid field (alternate flow A5).
-4. Policy stores the extension payload verbatim with its schema id.
+Rating calculates per-Exposure premium and factor steps using an immutable versioned Rate Manual. It stores no per-quote business state and returns no eligibility result. All money uses decimal arithmetic and documented rounding.
 
-### FR-6 Quote
+## FR-6 Quote — Policy
 
-Source: V-6.
+Policy validates the schedule, calls Rules, and calls Rating unless the Decision is Decline. It stores the Decision and, when priced, the complete Rate Snapshot with the Policy Revision. A Quote pins the Ruleset and Rate Manual versions used. Quotes expire after 30 days. Refer is priced but not bindable in the MVP; Decline has no price.
 
-1. On a quote request Policy calls Rules, then calls Rating only if the Decision is not Decline.
-2. Policy stores on the Policy Revision: the Decision (outcome, reason codes, ruleset version) and, when priced, the Rate Snapshot (Written Premium, per-Exposure premium and Rating Factors, rate manual version).
-3. Revision status is `Quoted` for Straight-Through, `Referred` for Refer, `Declined` for Decline.
-4. The reference scenario returns `Quoted`, Written Premium `1410.75` and the four steps in [rules-and-rating.md](rules-and-rating.md#reference-calculation).
-5. Alternate flows A1 to A4 return the statuses, reason codes and premiums listed in [user-flow.md](user-flow.md#alternate-flows).
-6. A quote is valid for 30 days from creation.
-7. If Rules or Rating is unavailable, the request fails with `503 dependency-unavailable` and nothing is stored.
+## FR-7 Bind — Policy
 
-### FR-7 Bind
+Only an unexpired Straight-Through Quote can bind. Policy re-evaluates the stored schedule with the Quote's pinned ruleset and rate manual. A changed Decision, reason set, premium, or unavailable pinned version returns `409 quote-stale` and changes nothing. A successful bind assigns a policy number, marks the revision Bound, creates Booking Status `Pending`, and atomically persists those changes with the idempotency response and `policy-bound` outbox message. The bound revision and its snapshots are immutable; Booking Status is a separate projection.
 
-Source: V-6, P-2, P-3.
+## FR-10 Premium booking — Ledger
 
-1. Only a `Quoted` revision can be bound. `Referred` or `Declined` returns `409 quote-not-bindable`.
-2. Binding after the quote validity window returns `409 quote-expired`.
-3. Bind re-runs Rules and Rating with the stored schedule. If the outcome, any reason code or the Written Premium differs from the Quote, it returns `409 quote-stale` and nothing changes.
-4. A successful bind assigns a policy number `CP-{yyyy}-{nnnnnn}` (per tenant sequence), sets the revision status to `Bound` and `boundAt`, and returns `200` with Booking Status `Pending`.
-5. The bound revision, its Rate Snapshot, the idempotency record and the `policy-bound` outbox row are committed in one transaction.
-6. A bound revision is immutable: any later write attempt fails in the domain model.
+Ledger consumes `policy-bound` and appends one immutable NewBusiness Premium Transaction, with one Premium Line per Exposure and Factor Lines copied from the event's Rate Snapshot. The event is the authoritative input; Ledger does not call Policy or Rating. A unique `(tenantId, policyId, revisionNo, transactionType)` business key prevents duplicate effects. Booking, Inbox receipt, and `premium-booked` outbox row commit in one transaction.
 
-### FR-11 Booking Status
+## FR-11 Booking Status — Policy
 
-Source: V-2, V-5.
+Policy consumes `premium-booked` idempotently and updates a booking-status projection from Pending to Booked. Binding does not wait for Ledger. Policy exposes Pending while the asynchronous booking is outstanding.
 
-1. Policy consumes `premium-booked` and sets the revision's Booking Status to `Booked` with `transactionId` and `bookedAt`.
-2. Booking Status is visible on the policy read endpoint.
-3. Applying `premium-booked` twice has no further effect.
+## FR-12 Reconciliation — Policy, Ledger
 
-### FR-12 Reconciliation
+Policy reports bound revisions that remain Pending beyond a configurable age. Ledger verifies that each transaction total equals its premium lines and that each final Factor Line equals its Exposure premium. Reconciliation is read-only and reports mismatches; corrections are new immutable records in any future scope.
 
-Source: V-5.
+## FR-13 Tenant isolation — All
 
-1. Policy exposes a report of bound revisions whose Booking Status is still `Pending` after a configurable age (default 5 minutes).
-2. Ledger exposes a self-check that, for every Premium Transaction, Allocation Lines sum to the premium line per Exposure and the last Factor Line equals the Exposure premium. Any mismatch is listed.
+Every request and event carries tenant identity. Every tenant-owned row and query is scoped to it. Cross-tenant reads return not-found. Tenant identity is trusted from a gateway header only in local learning scope; production authentication is deferred.
 
-## Rules service
+## FR-14 Idempotent commands — Stateful services
 
-### FR-4 Decision
+State-changing POST commands require `Idempotency-Key`. Reusing a key with the same canonical request replays the original response; reusing it with a different request returns `422`. Side-effect-free Rules and Rating calculations do not require keys.
 
-Source: V-6.
+## FR-15 Event publication and consumption — Policy, Ledger
 
-1. `POST /v1/decisions` returns outcome, ruleset version and all triggered reason codes per [rules-and-rating.md](rules-and-rating.md#ruleset-cp-rules-202607).
-2. The quote-level outcome is the most severe Exposure outcome.
-3. Rules stores nothing per request.
-4. The ruleset version used is the latest published version effective on the request's effective date; a request may pin a version.
+Policy and Ledger publish state-change events only through transactional outboxes. Consumers persist Inbox receipts atomically with their effect and also enforce business uniqueness where applicable. Delivery is at least once; effects are idempotent. Failed events are retried and eventually dead-lettered with a documented replay procedure.
 
-## Rating service
+## FR-16 Versioned contracts — All
 
-### FR-5 Rating
+Public and inter-service HTTP APIs use OpenAPI 3.1 and `/v1` routes. Events have versioned JSON Schemas. Additive compatible changes preserve consumer compatibility; breaking changes use a new major contract version.
 
-Source: V-6, V-5.
+## FR-17 Read endpoints — Policy, Ledger
 
-1. `POST /v1/rates` returns, per Exposure, the premium and every Rating Factor step (code, value, premium after step), plus total premium and rate manual version.
-2. Results follow the formula and rounding in [rules-and-rating.md](rules-and-rating.md#precision-and-rounding).
-3. Rating stores nothing per request and returns no eligibility information.
-4. Inputs outside the manual return `422 not-rateable`.
-5. The manual version used is the latest published version effective on the request's effective date; a request may pin a version.
+Policy reads Accounts, Quotes, bound Policies, and Booking Status. Ledger reads Premium Transactions and their lines. Each service reads only its own database.
 
-## Carrier service
+## Deferred product scope
 
-### FR-8 Treaties
-
-Source: V-3.
-
-1. Carriers Renaissance Re (`RENRE`) and Arch Re (`ARCHRE`) are seeded reference data.
-2. A treaty administrator creates a Treaty for the tenant and line of business `CP`.
-3. A treaty administrator publishes a Treaty Version with a version code, an effective-from date and Carrier shares. Shares are positive, have at most 4 decimal places, reference known Carriers, and sum to exactly 100.
-4. A published Treaty Version is immutable. A change is a new Treaty Version with a later effective date.
-5. Two Treaty Versions of the same Treaty cannot share an effective-from date.
-6. Publishing commits the version and a `treaty-version-published` outbox row in one transaction.
-7. Treaties and versions are readable within the tenant.
-
-## Ledger service
-
-### FR-9 Treaty read model
-
-Source: V-3, V-2.
-
-1. Ledger consumes `treaty-version-published` and stores the Treaty Version locally, keyed by tenant and treaty version id.
-2. Ledger never calls Carrier. Booking works with Carrier stopped (alternate flow A9).
-3. The read model can be dropped and rebuilt by replaying `clp.carrier.v1` from the beginning, producing the same rows.
-
-### FR-10 Booking
-
-Source: V-5, V-3.
-
-1. On `policy-bound`, Ledger selects the tenant's Treaty Version for line `CP` with the latest effective-from on or before the policy effective date.
-2. Ledger appends one Premium Transaction (type `NewBusiness`) with: one premium line per Exposure carrying policy, revision, Coverage, Location, Building, Unit and Exposure ids; the Factor Lines from the event's Rate Snapshot; and Allocation Lines per Exposure per Carrier using [the allocation rule](rules-and-rating.md#quota-share-allocation).
-3. The transaction stores the treaty version id, rate manual version, ruleset version and source event id.
-4. The reference scenario books 1,410.75 with Allocation Lines 987.53 (RENRE) and 423.22 (ARCHRE).
-5. Ledger tables are insert-only.
-6. At most one `NewBusiness` transaction exists per tenant, policy and revision, even if the event is delivered twice or re-published with a new id (A8).
-7. Booking, the inbox row and the `premium-booked` outbox row commit in one transaction.
-8. If no Treaty Version applies, booking is retried with backoff and then the event is parked on the dead-letter topic (A10).
-9. A finance analyst lists Premium Transactions for a policy and reads one transaction with all its lines.
-
-## Cross-cutting
-
-### FR-13 Tenancy
-
-Source: P-5.
-
-1. Every HTTP request carries `X-Tenant-Id`. Missing is `400 tenant-required`; unknown is `403 tenant-unknown`. MVP tenants: `harbor`, `northstar`.
-2. Every stored row carries the tenant id, and every query filters by it.
-3. Reading another tenant's resource returns `404 not-found` (A11).
-4. Every event carries the tenant id; consumers apply it to the same tenant.
-5. Booking uses only the tenant's own Treaty Version; a Northstar policy is allocated 100% to Arch Re.
-
-### FR-14 Idempotent commands
-
-Source: P-2.
-
-1. Every `POST` command requires `Idempotency-Key` (1 to 64 characters). Missing is `400 idempotency-key-required`. The side-effect-free calculations `POST /v1/decisions` and `POST /v1/rates` are exempt.
-2. Keys are scoped by tenant and operation.
-3. Repeating a key with the same body returns the stored status and body with `Idempotent-Replayed: true`, and performs no work (A6).
-4. Repeating a key with a different body returns `422 idempotency-key-reused` (A7).
-5. A concurrent request with an in-flight key returns `409 idempotency-key-in-flight`.
-6. `5xx` outcomes are not stored, so the client can retry with the same key.
-7. Keys are retained for at least 24 hours.
-
-### FR-15 Event publication and consumption
-
-Source: V-2, P-2, P-3.
-
-1. Policy, Carrier and Ledger publish only through their outbox, per [../contracts/events/catalog.md](../contracts/events/catalog.md).
-2. A relay publishes outbox rows in insertion order per aggregate and marks them published; a crash between publish and mark causes a re-publish, not a loss.
-3. Every consumer records the event id in its inbox in the same transaction as its effect; a seen id is acknowledged without effect.
-4. Consumers ignore unknown fields and tolerate unknown event types on a topic.
-5. A message that still fails after the retry policy goes to `<topic>.<consumer>.dlt` with the failure reason; a script re-drives parked messages.
-6. Every produced payload validates against its JSON Schema.
-
-### FR-16 Versioned contracts
-
-Source: V-1, P-4.
-
-1. All routes are under `/v1`. The OpenAPI 3.1 file in [../contracts/openapi/](../contracts/openapi/) is written before the endpoint and served unchanged by the service at `/openapi/v1.yaml`.
-2. Requests with unknown properties are rejected with `422 validation-failed`.
-3. Errors are `application/problem+json` with a stable `code`.
-4. Breaking changes follow [../contracts/README.md](../contracts/README.md#versioning-rules).
-
-### FR-17 Read endpoints
-
-Source: V-4, V-5.
-
-1. Policy: read an Account, read a Quote (revision with Decision and Rate Snapshot), read a Policy (latest bound revision with Booking Status).
-2. Carrier: list Carriers, list Treaties, read a Treaty with its versions.
-3. Ledger: list Premium Transactions for a policy, read a Premium Transaction with all lines.
-
-## Out of scope
-
-Recorded so that nothing in the vacancy is dropped silently. Each has a row in [../traceability.md](../traceability.md).
-
-- Underwriter workbench and referral resolution.
-- Endorsements, cancellations, reinstatements, renewals; the model and ledger support them by adding revisions and transactions.
-- Documents, billing, payments, bordereaux.
-- SSO federation and per-user authorisation; MVP trusts `X-Tenant-Id` behind the gateway boundary (ADR-0008).
-- AMS and clearinghouse connectivity (IVANS, EZLynx), third-party enrichment (property, loss history, credit/FCRA).
-- Submission and clearance as a separate context.
-- More lines of business, coverages and NAICS codes than listed.
-- Azure deployment.
+FR-8 and FR-9 are retired identifiers kept unused to preserve traceability. Also out of scope: underwriting workbench, endorsements, cancellation, renewal, billing, payments, bordereaux, SSO, AMS connectivity, third-party enrichment, and production Azure deployment. Azure target architecture is documented separately in the deployment view.

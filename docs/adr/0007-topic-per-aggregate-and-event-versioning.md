@@ -4,7 +4,7 @@ status: accepted
 
 # One topic per aggregate; event types carry their own major version
 
-Each aggregate type has one topic keyed by aggregate id (`clp.policy.v1` by `policyId`, `clp.carrier.v1` by `treatyId`, `clp.ledger.v1` by `policyId`), so all events for one policy stay in order and a consumer subscribes to a business stream rather than to dozens of type topics. Events use a CloudEvents envelope with a JSON Schema per type; additive optional fields keep the type, and any breaking change publishes a new `.v2` type alongside `.v1` until consumers move. Consumers ignore unknown fields and skip unknown types.
+The learning flow uses one topic per stateful aggregate stream (`clp.policy.v1` by `policyId`, `clp.ledger.v1` by `policyId`). This keeps events for one policy ordered while keeping the topic set small. Events use a CloudEvents envelope and JSON Schema per type; additive optional fields keep the type, and breaking changes introduce a new major event type. Consumers ignore unknown optional fields and safely skip unknown event types.
 
 ## Considered Options
 

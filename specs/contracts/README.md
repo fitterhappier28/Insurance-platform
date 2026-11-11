@@ -1,5 +1,7 @@
 # Contracts
 
+Active flow: Policy, Rules, Rating, and Ledger. Reinsurance is not represented by contracts in this learning scope.
+
 Contracts are written and reviewed before the code that implements them. They win over code when the two disagree.
 
 | Folder | Contents | Dialect |
@@ -58,7 +60,6 @@ Clients branch on `code`, never on `title` or `detail`.
 | `quote-stale` | 409 | Policy |
 | `dependency-unavailable` | 503 | Policy |
 | `not-rateable` | 422 | Rating |
-| `treaty-version-conflict` | 409 | Carrier |
 
 ## Versioning rules
 

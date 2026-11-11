@@ -4,7 +4,7 @@ status: accepted
 
 # Tenant from a header, isolated by row inside each service database
 
-Each request carries `X-Tenant-Id`, every row and event carries `tenantId`, and every repository applies a tenant filter (an EF Core global query filter plus an explicit tenant on every insert). A database per tenant would multiply the three SQL Servers by the number of tenants; row-level isolation keeps one schema per service and is proven by cross-tenant acceptance tests. The header stands in for the tenant claim of an SSO token, which replaces it when federation lands; until then the APIs must sit behind a gateway that sets the header.
+Each request carries a tenant identity, every tenant-owned row and event carries that identity, and every repository applies a tenant filter. A database per tenant would multiply infrastructure with tenant count; row-level isolation keeps tenant data within each service-owned database and is proven by cross-tenant tests. The local `X-Tenant-Id` header stands in for a validated tenant claim; production must derive it from authenticated identity and enforce access through the gateway and services.
 
 ## Considered Options
 

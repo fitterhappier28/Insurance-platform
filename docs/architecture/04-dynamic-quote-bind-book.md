@@ -1,101 +1,39 @@
-# Dynamic view: quote, bind, book
-
-Structurizr view: `QuoteBindBook`. Scenario values: [../../specs/product/user-flow.md](../../specs/product/user-flow.md#reference-scenario).
-
-```mermaid
-C4Dynamic
-  title Treaty publication, quote, bind and booking
-
-  Person(treatyAdmin, "Treaty administrator")
-  Person(broker, "Broker")
-  Person(financeAnalyst, "Finance analyst")
-  Container(carrier, "Carrier Service")
-  ContainerDb(carrierDb, "Carrier DB")
-  Container(policy, "Policy Service")
-  ContainerDb(policyDb, "Policy DB")
-  Container(rules, "Rules Service")
-  Container(rating, "Rating Service")
-  ContainerQueue(kafka, "Kafka")
-  Container(ledger, "Ledger Service")
-  ContainerDb(ledgerDb, "Ledger DB")
-
-  Rel(treatyAdmin, carrier, "Publish HBR-CP-QS-2026.07")
-  Rel(carrier, carrierDb, "Version and outbox row")
-  Rel(carrier, kafka, "treaty-version-published")
-  Rel(ledger, kafka, "Consume treaty version")
-  Rel(ledger, ledgerDb, "Treaty read model and inbox")
-  Rel(broker, policy, "POST /v1/quotes")
-  Rel(policy, rules, "Decide: StraightThrough")
-  Rel(policy, rating, "Rate: 1410.75")
-  Rel(policy, policyDb, "Revision, Decision, Rate Snapshot")
-  Rel(broker, policy, "POST bind")
-  Rel(policy, rules, "Re-decide")
-  Rel(policy, rating, "Re-rate")
-  Rel(policy, policyDb, "Bound revision and outbox, one transaction")
-  Rel(policy, kafka, "policy-bound")
-  Rel(ledger, kafka, "Consume policy-bound")
-  Rel(ledger, ledgerDb, "Transaction, lines, inbox, outbox")
-  Rel(ledger, kafka, "premium-booked")
-  Rel(policy, kafka, "Consume premium-booked")
-  Rel(policy, policyDb, "Booking Status Booked")
-  Rel(financeAnalyst, ledger, "GET transactions")
-```
-
-The numbered arrows are one walk of the reference scenario, not a second architecture. Treaty publication happens first so Ledger already holds the Treaty Version when `policy-bound` arrives. Quote and bind are synchronous HTTP through Policy, Rules and Rating. Booking is asynchronous: Policy commits the bind, the outbox relay publishes, Ledger appends the Premium Transaction, then Policy marks Booking Status Booked.
-
-The sequence diagram below is the same walk with return values filled in (Decision, premium `1410.75`, allocation). It is the readable form of the C4 dynamic view.
-
-## Sequence
+# Dynamic view: quote, bind and book
 
 ```mermaid
 sequenceDiagram
-  autonumber
-  actor Admin as TreatyAdmin
   actor Broker
-  participant Carrier
   participant Policy
   participant Rules
   participant Rating
   participant Kafka
   participant Ledger
-  actor Finance as FinanceAnalyst
-
-  Admin->>Carrier: POST /v1/treaties/{id}/versions
-  Carrier-->>Admin: 201 TreatyVersion
-  Carrier->>Kafka: treaty-version-published (relay)
-  Kafka->>Ledger: treaty version into read model
-
-  Broker->>Policy: POST /v1/quotes
-  Policy->>Rules: POST /v1/decisions
-  Rules-->>Policy: StraightThrough, CP-RULES-2026.07
-  Policy->>Rating: POST /v1/rates
-  Rating-->>Policy: 1410.75 with 4 steps, CP-RATE-2026.07
-  Policy-->>Broker: 201 Quote, status Quoted
-
-  Broker->>Policy: POST /v1/quotes/{id}/bind + Idempotency-Key
-  Policy->>Rules: re-decide
-  Policy->>Rating: re-rate
-  Policy-->>Broker: 200 Bound CP-2026-000001, booking Pending
-  Policy->>Kafka: policy-bound (relay)
-
-  Kafka->>Ledger: policy-bound
-  Ledger->>Ledger: transaction 1410.75, RENRE 987.53, ARCHRE 423.22
-  Ledger->>Kafka: premium-booked (relay)
+  actor Finance
+  Broker->>Policy: Create quote + schedule
+  Policy->>Rules: Decide (pinned ruleset)
+  Rules-->>Policy: Decision + reasons
+  Policy->>Rating: Rate (pinned rate manual)
+  Rating-->>Policy: Rate Snapshot + factors
+  Policy-->>Broker: Quote
+  Broker->>Policy: Bind + Idempotency-Key
+  Policy->>Rules: Re-evaluate pinned version
+  Policy->>Rating: Re-rate pinned version
+  Policy->>Policy: Commit Bound revision + outbox
+  Policy-->>Broker: Bound, Booking Pending
+  Policy->>Kafka: policy-bound (outbox relay)
+  Kafka->>Ledger: policy-bound (at least once)
+  Ledger->>Ledger: Inbox + immutable Premium Transaction
+  Ledger->>Kafka: premium-booked (outbox relay)
   Kafka->>Policy: premium-booked
-  Policy->>Policy: Booking Status Booked
-
-  Finance->>Ledger: GET /v1/policies/{id}/transactions
-  Ledger-->>Finance: transaction with factor and allocation lines
+  Policy->>Policy: Update Booking Status
+  Finance->>Ledger: Read transaction and factor lines
 ```
 
-## Failure behaviour along the path
+## Transaction boundaries
 
-| Failure | Effect | Recovery |
-| --- | --- | --- |
-| Rules or Rating down during quote or bind | `503 dependency-unavailable`; nothing stored | Client retries with the same idempotency key |
-| Policy crashes after commit, before relay publish | Outbox row unsent | Relay publishes on restart |
-| Relay crashes after publish, before marking | Event published twice | Ledger inbox drops the duplicate |
-| Kafka down | Bind still succeeds; booking waits | Relay resumes; Booking Status catches up |
-| Ledger down | Booking waits | Consumer resumes from its committed offset |
-| Treaty Version not yet in Ledger | Retries, then dead-letter | Re-drive after the treaty arrives ([operations.md](operations.md)) |
-| Carrier down | No effect on quote, bind or booking | n/a |
+- Quote: Policy stores the revision and snapshots after successful Rules and Rating calls. Rules and Rating remain stateless for request data.
+- Bind: Policy commits bound state and `policy-bound` outbox row atomically. Kafka is not part of the request transaction.
+- Booking: Ledger commits its Inbox receipt, immutable financial rows, and `premium-booked` outbox row atomically.
+- Confirmation: Policy consumes `premium-booked` idempotently and updates Booking Status. A temporary delay leaves the status Pending; it does not undo the bound policy.
+
+`policy-bound` carries all facts Ledger needs, including the complete Rate Snapshot and hierarchy identifiers. This makes booking independent of Policy and Rating availability after bind and preserves the exact bound price for audit.

@@ -4,12 +4,12 @@ status: accepted
 
 # .NET Aspire AppHost orchestrates the local stack
 
-The local stack is defined in code by an Aspire AppHost (`backend/src/AppHost`), not by a Compose file: five service projects, three SQL Server containers, Kafka and Kafka UI, with the Aspire dashboard for traces, metrics, logs and resource state. Aspire gives service discovery, health-gated start order, secrets as parameters, and `Aspire.Hosting.Testing` so acceptance tests start the same stack the developer runs. This supersedes the private-Docker-network clause of [ADR-0001](0001-database-server-per-stateful-service.md); separate SQL Server instances per stateful service stay.
+The local stack is defined in code by an Aspire AppHost (`backend/src/AppHost`): Policy, Rules, Rating, and Ledger; SQL Server for the two stateful contexts; and Kafka. Aspire gives service discovery, health-gated start order, secret parameters, and `Aspire.Hosting.Testing` so acceptance tests can start the same stack as a developer. This is a local development choice, not the production deployment model.
 
 ## Considered Options
 
 - Keep Docker Compose with per-service data networks. Gives network-level isolation, but a second definition of the topology next to the .NET code, and no integrated dashboard or test host.
-- Aspire for development, generated Compose for anything else. Possible later (`aspire publish`); not needed for the MVP.
+- Docker Compose. Viable, but would create a second local topology beside the .NET AppHost and would require separate integration-test wiring.
 
 ## Consequences
 

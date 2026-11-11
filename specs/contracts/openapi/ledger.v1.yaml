@@ -3,11 +3,9 @@ jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
   title: CLP Ledger API
   version: 1.0.0
-  description: |
-    Read access to the immutable Premium Ledger. Writes happen only by consuming policy-bound.
-    Requirements: FR-10, FR-12, FR-13, FR-16, FR-17.
+  description: Read-only access to immutable premium transactions. Ledger writes only by consuming policy-bound.
 servers:
-  - url: http://localhost:5105
+  - url: http://localhost:5104
 paths:
   /v1/policies/{policyId}/transactions:
     get:
@@ -17,7 +15,7 @@ paths:
         - { name: policyId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
-          description: Transactions in booking order; empty if nothing booked yet
+          description: Transactions for the policy
           content:
             application/json:
               schema:
@@ -35,7 +33,7 @@ paths:
         - { name: transactionId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         '200':
-          description: OK
+          description: Immutable transaction with premium and factor lines
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Transaction' }
@@ -43,12 +41,12 @@ paths:
   /v1/reconciliation/self-check:
     get:
       operationId: selfCheck
-      summary: Lists transactions whose factor or allocation lines do not reconcile (FR-12)
+      summary: Finds mismatches between transaction, premium, and factor lines
       parameters:
         - $ref: 'common.v1.yaml#/components/parameters/TenantId'
       responses:
         '200':
-          description: OK; empty items means every transaction reconciles
+          description: Empty items means all checked transactions reconcile
           content:
             application/json:
               schema:
@@ -64,22 +62,21 @@ paths:
                       properties:
                         transactionId: { type: string, format: uuid }
                         premiumLineId: { type: string, format: uuid }
-                        problem: { type: string, description: 'factor-mismatch or allocation-mismatch' }
+                        problem: { type: string, enum: [transaction-total-mismatch, factor-mismatch] }
 components:
   schemas:
     TransactionSummary:
       type: object
-      required: [transactionId, transactionType, policyId, policyNumber, revisionNo, effectiveDate, writtenPremium, currency, treatyVersionId, bookedAt]
+      required: [transactionId, transactionType, policyId, policyNumber, revisionNo, effectiveDate, writtenPremium, currency, bookedAt]
       properties:
         transactionId: { type: string, format: uuid }
-        transactionType: { type: string, description: 'NewBusiness in MVP. New values may be added.' }
+        transactionType: { type: string, const: NewBusiness }
         policyId: { type: string, format: uuid }
         policyNumber: { type: string }
         revisionNo: { type: integer }
         effectiveDate: { type: string, format: date }
         writtenPremium: { $ref: 'common.v1.yaml#/components/schemas/Money' }
         currency: { const: USD }
-        treatyVersionId: { type: string, format: uuid }
         bookedAt: { type: string, format: date-time }
     Transaction:
       allOf:
@@ -94,7 +91,7 @@ components:
               type: array
               items:
                 type: object
-                required: [premiumLineId, exposureId, coverageCode, locationId, buildingId, unitId, naicsCode, limit, premium, factorLines, allocationLines]
+                required: [premiumLineId, exposureId, coverageCode, locationId, buildingId, unitId, naicsCode, limit, premium, factorLines]
                 properties:
                   premiumLineId: { type: string, format: uuid }
                   exposureId: { type: string, format: uuid }
@@ -108,13 +105,3 @@ components:
                   factorLines:
                     type: array
                     items: { $ref: 'common.v1.yaml#/components/schemas/RatedFactor' }
-                  allocationLines:
-                    type: array
-                    items:
-                      type: object
-                      required: [carrierCode, sharePercent, amount, isLead]
-                      properties:
-                        carrierCode: { type: string }
-                        sharePercent: { $ref: 'common.v1.yaml#/components/schemas/Percent' }
-                        amount: { $ref: 'common.v1.yaml#/components/schemas/Money' }
-                        isLead: { type: boolean }

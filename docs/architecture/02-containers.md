@@ -1,71 +1,26 @@
-# Containers
-
-Structurizr view: `Containers`. Decisions: [ADR-0001](../adr/0001-database-server-per-stateful-service.md), [ADR-0002](../adr/0002-stateless-rules-and-rating.md), [ADR-0004](../adr/0004-account-inside-policy-service.md), [ADR-0005](../adr/0005-transactional-outbox-and-inbox.md), [ADR-0006](../adr/0006-event-carried-treaty-state.md).
+# Container view
 
 ```mermaid
-C4Container
-  title Containers: Commercial Lines Platform
-
-  Person(broker, "Broker")
-  Person(treatyAdmin, "Treaty administrator")
-  Person(financeAnalyst, "Finance analyst")
-
-  System_Boundary(clp, "Commercial Lines Platform") {
-    Container(policy, "Policy Service", ".NET 10", "Account to Exposure hierarchy, quote, bind, booking status")
-    ContainerDb(policyDb, "Policy DB", "SQL Server 2022", "Own instance")
-    Container(rules, "Rules Service", ".NET 10", "Eligibility, NAICS validation. Stateless")
-    Container(rating, "Rating Service", ".NET 10", "Price and factors. Stateless")
-    Container(carrier, "Carrier Service", ".NET 10", "Treaties and treaty versions")
-    ContainerDb(carrierDb, "Carrier DB", "SQL Server 2022", "Own instance")
-    Container(ledger, "Ledger Service", ".NET 10", "Treaty read model, premium ledger, allocation")
-    ContainerDb(ledgerDb, "Ledger DB", "SQL Server 2022", "Own instance, insert-only ledger")
-    ContainerQueue(kafka, "Kafka", "KRaft", "clp.policy.v1, clp.carrier.v1, clp.ledger.v1")
-  }
-
-  Rel(broker, policy, "Quotes and binds", "HTTPS")
-  Rel(treatyAdmin, carrier, "Publishes treaty versions", "HTTPS")
-  Rel(financeAnalyst, ledger, "Reads transactions", "HTTPS")
-  Rel(policy, rules, "POST /v1/decisions", "HTTP")
-  Rel(policy, rating, "POST /v1/rates", "HTTP")
-  Rel(policy, policyDb, "Reads and writes", "TDS")
-  Rel(carrier, carrierDb, "Reads and writes", "TDS")
-  Rel(ledger, ledgerDb, "Inserts and reads", "TDS")
-  Rel(policy, kafka, "policy-quoted, policy-bound; consumes premium-booked")
-  Rel(carrier, kafka, "treaty-version-published")
-  Rel(ledger, kafka, "premium-booked; consumes policy-bound, treaty-version-published")
+flowchart LR
+  Broker -->|HTTP /v1| Policy[Policy Service\nPolicy DB]
+  Policy -->|HTTP: decide| Rules[Rules Service\nversioned rulesets]
+  Policy -->|HTTP: price| Rating[Rating Service\nversioned rate manuals]
+  Policy -->|outbox relay| Kafka[(Kafka)]
+  Kafka -->|policy-bound| Ledger[Ledger Service\nLedger DB]
+  Ledger -->|outbox relay: premium-booked| Kafka
+  Kafka -->|premium-booked| Policy
+  Finance -->|HTTP /v1| Ledger
 ```
 
-## What each box is
-
-| Box | What it is |
-| --- | --- |
-| Policy Service | Owns the Account-to-Exposure hierarchy, the Quote and the bound Policy Revision. Orchestrates Rules and Rating. Records Booking Status after Ledger has booked. |
-| Policy DB | Policy's own SQL Server. Nothing else has its connection string. |
-| Rules Service | Eligibility only. Returns Straight-Through, Refer or Decline. Stateless; the Ruleset is files in the image. Never prices and never stores a business outcome. |
-| Rating Service | Price only, with a factor-level breakdown. Stateless; the Rate Manual is files in the image. Never decides eligibility. |
-| Carrier Service | Carriers, Treaties and immutable effective-dated Treaty Versions. Publishes a version; does not participate in quote or bind. |
-| Carrier DB | Carrier's own SQL Server. |
-| Ledger Service | Copies treaty versions into a read model, allocates bound premium and appends Premium Transactions. Ledger rows are insert-only. |
-| Ledger DB | Ledger's own SQL Server. |
-| Kafka | The only channel between Policy, Carrier and Ledger. Three topics: `clp.policy.v1`, `clp.carrier.v1`, `clp.ledger.v1`, plus dead-letter topics. |
-
-## Ownership
-
-| Container | Owns (only writer) | Reads from others via | Publishes | Consumes |
-| --- | --- | --- | --- | --- |
-| Policy | Account, Applicant, Policy, Policy Revision and its hierarchy, Decision and Rate Snapshot copies, Booking Status | Rules and Rating APIs (sync) | `policy-quoted.v1`, `policy-bound.v1` | `premium-booked.v1` |
-| Rules | Ruleset files, NAICS Extension schemas | none | none | none |
-| Rating | Rate Manual files | none | none | none |
-| Carrier | Carrier, Treaty, Treaty Version, shares | none | `treaty-version-published.v1` | none |
-| Ledger | Premium Transaction and lines; treaty read model (copy) | none | `premium-booked.v1` | `policy-bound.v1`, `treaty-version-published.v1` |
-
-## Communication styles
-
-| Path | Style | Why |
+| Context | Owns data | Why separate |
 | --- | --- | --- |
-| Policy to Rules, Rating | Synchronous HTTP | The broker is waiting for a price; both are stateless and fast |
-| Policy to Ledger | Event, via outbox | Booking must not block or fail a bind; Ledger must not depend on Policy being up |
-| Carrier to Ledger | Event-carried state | Booking must not depend on Carrier at runtime |
-| Ledger to Policy | Event | Policy learns the booking outcome without polling |
+| Policy | Account, Applicant, Policy schedule/revisions, quote snapshots, bind state, Booking Status | Owns the commercial workflow and contract state |
+| Rules | Published eligibility rulesets | Eligibility changes independently from price; no per-quote state |
+| Rating | Published rate manuals | Pricing and factor-level explanation are independent from eligibility; no per-quote state |
+| Ledger | Premium transactions and lines | Financial records are append-only and independently auditable |
 
-The quote and bind path touches only Policy, Rules, Rating and Policy DB. Carrier, Ledger and Kafka can be down without failing a bind; booking catches up when they return.
+Policy synchronously calls Rules and Rating because a broker needs a Decision and price to receive a Quote. After bind, Policy and Ledger communicate asynchronously. Rules and Rating do not share Policy's database. Ledger owns its own database and consumes a complete bound snapshot; it does not query Policy or Rating while booking.
+
+## Microservice rationale
+
+The stateful split exists where data ownership and transaction boundaries differ: Policy commits policy state; Ledger commits financial state. Rules and Rating are separate stateless contexts because the role explicitly demonstrates the distinction between eligibility decisions and pricing. This is an educational decomposition; a production team should validate operational cost, deployment independence, and scaling needs before choosing the same number of services.
