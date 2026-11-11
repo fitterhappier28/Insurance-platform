@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clp.example/schemas/events/policy-quoted.v1.json",
+  "title": "clp.policy.policy-quoted.v1",
+  "$comment": "1.0.0",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "clp.policy.policy-quoted.v1" },
+    "source": { "const": "urn:clp:policy" },
+    "data": {
+      "type": "object",
+      "required": ["aggregateSeq", "policyId", "accountId", "revisionNo", "quoteId", "status", "outcome", "reasons", "rulesetVersion", "effectiveFrom", "effectiveTo", "quotedAt"],
+      "properties": {
+        "aggregateSeq": { "type": "integer", "minimum": 1 },
+        "policyId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+        "accountId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+        "revisionNo": { "type": "integer", "minimum": 1 },
+        "quoteId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+        "status": { "type": "string", "description": "Quoted, Referred or Declined. Consumers tolerate unknown values." },
+        "outcome": { "type": "string", "description": "StraightThrough, Refer or Decline. Consumers tolerate unknown values." },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code"],
+            "properties": {
+              "code": { "type": "string" },
+              "exposureId": { "$ref": "envelope.schema.json#/$defs/uuid" }
+            }
+          }
+        },
+        "rulesetVersion": { "type": "string" },
+        "rateManualVersion": { "type": ["string", "null"] },
+        "writtenPremium": { "oneOf": [{ "$ref": "envelope.schema.json#/$defs/money" }, { "type": "null" }] },
+        "currency": { "const": "USD" },
+        "effectiveFrom": { "$ref": "envelope.schema.json#/$defs/date" },
+        "effectiveTo": { "$ref": "envelope.schema.json#/$defs/date" },
+        "quotedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

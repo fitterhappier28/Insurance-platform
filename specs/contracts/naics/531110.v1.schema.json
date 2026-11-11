@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "naics/531110.v1",
+  "title": "NAICS 531110 Lessors of Residential and Nonresidential Buildings, v1",
+  "$comment": "Owned by Rules. Used by R-VACANCY and R-RESTAURANT-TENANT.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["unitCount", "percentVacant", "hasRestaurantTenant"],
+  "properties": {
+    "unitCount": { "type": "integer", "minimum": 1, "maximum": 500, "description": "Leasable units in the building" },
+    "percentVacant": { "type": "number", "minimum": 0, "maximum": 100, "description": "Share of leasable area currently vacant" },
+    "hasRestaurantTenant": { "type": "boolean", "description": "Any unit leased to a restaurant or commercial cooking operation" }
+  }
+}

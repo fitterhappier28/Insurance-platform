@@ -1,0 +1,120 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: CLP Ledger API
+  version: 1.0.0
+  description: |
+    Read access to the immutable Premium Ledger. Writes happen only by consuming policy-bound.
+    Requirements: FR-10, FR-12, FR-13, FR-16, FR-17.
+servers:
+  - url: http://localhost:5105
+paths:
+  /v1/policies/{policyId}/transactions:
+    get:
+      operationId: listPolicyTransactions
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+        - { name: policyId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Transactions in booking order; empty if nothing booked yet
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/TransactionSummary' }
+  /v1/transactions/{transactionId}:
+    get:
+      operationId: getTransaction
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+        - { name: transactionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Transaction' }
+        '404': { $ref: 'common.v1.yaml#/components/responses/NotFound' }
+  /v1/reconciliation/self-check:
+    get:
+      operationId: selfCheck
+      summary: Lists transactions whose factor or allocation lines do not reconcile (FR-12)
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: OK; empty items means every transaction reconciles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [checked, items]
+                properties:
+                  checked: { type: integer }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [transactionId, premiumLineId, problem]
+                      properties:
+                        transactionId: { type: string, format: uuid }
+                        premiumLineId: { type: string, format: uuid }
+                        problem: { type: string, description: 'factor-mismatch or allocation-mismatch' }
+components:
+  schemas:
+    TransactionSummary:
+      type: object
+      required: [transactionId, transactionType, policyId, policyNumber, revisionNo, effectiveDate, writtenPremium, currency, treatyVersionId, bookedAt]
+      properties:
+        transactionId: { type: string, format: uuid }
+        transactionType: { type: string, description: 'NewBusiness in MVP. New values may be added.' }
+        policyId: { type: string, format: uuid }
+        policyNumber: { type: string }
+        revisionNo: { type: integer }
+        effectiveDate: { type: string, format: date }
+        writtenPremium: { $ref: 'common.v1.yaml#/components/schemas/Money' }
+        currency: { const: USD }
+        treatyVersionId: { type: string, format: uuid }
+        bookedAt: { type: string, format: date-time }
+    Transaction:
+      allOf:
+        - $ref: '#/components/schemas/TransactionSummary'
+        - type: object
+          required: [rateManualVersion, rulesetVersion, sourceEventId, premiumLines]
+          properties:
+            rateManualVersion: { type: string }
+            rulesetVersion: { type: string }
+            sourceEventId: { type: string, format: uuid }
+            premiumLines:
+              type: array
+              items:
+                type: object
+                required: [premiumLineId, exposureId, coverageCode, locationId, buildingId, unitId, naicsCode, limit, premium, factorLines, allocationLines]
+                properties:
+                  premiumLineId: { type: string, format: uuid }
+                  exposureId: { type: string, format: uuid }
+                  coverageCode: { type: string }
+                  locationId: { type: string, format: uuid }
+                  buildingId: { type: string, format: uuid }
+                  unitId: { type: [string, 'null'], format: uuid }
+                  naicsCode: { type: string }
+                  limit: { $ref: 'common.v1.yaml#/components/schemas/Money' }
+                  premium: { $ref: 'common.v1.yaml#/components/schemas/Money' }
+                  factorLines:
+                    type: array
+                    items: { $ref: 'common.v1.yaml#/components/schemas/RatedFactor' }
+                  allocationLines:
+                    type: array
+                    items:
+                      type: object
+                      required: [carrierCode, sharePercent, amount, isLead]
+                      properties:
+                        carrierCode: { type: string }
+                        sharePercent: { $ref: 'common.v1.yaml#/components/schemas/Percent' }
+                        amount: { $ref: 'common.v1.yaml#/components/schemas/Money' }
+                        isLead: { type: boolean }

@@ -1,0 +1,81 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: CLP Rules API
+  version: 1.0.0
+  description: |
+    Stateless eligibility decisions and NAICS Extension validation. Never prices.
+    Requirements: FR-3, FR-4, FR-13, FR-16. Ruleset: specs/product/rules-and-rating.md.
+    POST /v1/decisions is a side-effect-free calculation and does not take an Idempotency-Key.
+servers:
+  - url: http://localhost:5102
+paths:
+  /v1/decisions:
+    post:
+      operationId: decide
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+        - $ref: 'common.v1.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [effectiveDate, exposures]
+              properties:
+                effectiveDate: { type: string, format: date }
+                rulesetVersion: { type: string, description: Pin a version; default is the version effective on effectiveDate. }
+                exposures:
+                  type: array
+                  minItems: 1
+                  items: { $ref: 'common.v1.yaml#/components/schemas/RiskExposure' }
+      responses:
+        '200':
+          description: Decision
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [outcome, rulesetVersion, reasons, exposures]
+                properties:
+                  outcome: { type: string, description: 'StraightThrough, Refer, Decline. New values may be added.' }
+                  rulesetVersion: { type: string, examples: ['CP-RULES-2026.07'] }
+                  reasons:
+                    type: array
+                    items: { $ref: 'common.v1.yaml#/components/schemas/DecisionReason' }
+                  exposures:
+                    type: array
+                    items:
+                      type: object
+                      required: [exposureRef, outcome]
+                      properties:
+                        exposureRef: { type: string }
+                        outcome: { type: string }
+        '400': { $ref: 'common.v1.yaml#/components/responses/BadRequest' }
+        '403': { $ref: 'common.v1.yaml#/components/responses/Forbidden' }
+        '422': { $ref: 'common.v1.yaml#/components/responses/Unprocessable' }
+  /v1/rulesets:
+    get:
+      operationId: listRulesets
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: Published rulesets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [version, effectiveFrom, naicsSchemas]
+                      properties:
+                        version: { type: string }
+                        effectiveFrom: { type: string, format: date }
+                        naicsSchemas: { type: array, items: { type: string } }

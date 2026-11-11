@@ -1,0 +1,173 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: CLP Carrier API
+  version: 1.0.0
+  description: |
+    Carriers, quota-share Treaties and immutable Treaty Versions.
+    Requirements: FR-8, FR-13, FR-14, FR-16, FR-17.
+servers:
+  - url: http://localhost:5104
+paths:
+  /v1/carriers:
+    get:
+      operationId: listCarriers
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Carrier' }
+  /v1/treaties:
+    get:
+      operationId: listTreaties
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Treaty' }
+    post:
+      operationId: createTreaty
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+        - $ref: 'common.v1.yaml#/components/parameters/IdempotencyKey'
+        - $ref: 'common.v1.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, lineOfBusiness]
+              properties:
+                name: { type: string, maxLength: 200, examples: ['Harbor CP Quota Share'] }
+                lineOfBusiness: { type: string, const: CP }
+      responses:
+        '201':
+          description: Created
+          headers:
+            Location: { schema: { type: string } }
+            Idempotent-Replayed: { $ref: 'common.v1.yaml#/components/headers/IdempotentReplayed' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Treaty' }
+        '400': { $ref: 'common.v1.yaml#/components/responses/BadRequest' }
+        '403': { $ref: 'common.v1.yaml#/components/responses/Forbidden' }
+        '409': { $ref: 'common.v1.yaml#/components/responses/Conflict' }
+        '422': { $ref: 'common.v1.yaml#/components/responses/Unprocessable' }
+  /v1/treaties/{treatyId}:
+    get:
+      operationId: getTreaty
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+        - { name: treatyId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Treaty' }
+        '404': { $ref: 'common.v1.yaml#/components/responses/NotFound' }
+  /v1/treaties/{treatyId}/versions:
+    post:
+      operationId: publishTreatyVersion
+      summary: Publish an immutable Treaty Version
+      description: Creating a version publishes it. Emits treaty-version-published through the outbox.
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+        - $ref: 'common.v1.yaml#/components/parameters/IdempotencyKey'
+        - $ref: 'common.v1.yaml#/components/parameters/CorrelationId'
+        - { name: treatyId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [versionCode, effectiveFrom, shares]
+              properties:
+                versionCode: { type: string, maxLength: 40, examples: ['HBR-CP-QS-2026.07'] }
+                effectiveFrom: { type: string, format: date }
+                shares:
+                  type: array
+                  minItems: 1
+                  description: Shares must sum to exactly 100.
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [carrierCode, sharePercent]
+                    properties:
+                      carrierCode: { $ref: 'common.v1.yaml#/components/schemas/CarrierCode' }
+                      sharePercent: { $ref: 'common.v1.yaml#/components/schemas/Percent' }
+      responses:
+        '201':
+          description: Published
+          headers:
+            Idempotent-Replayed: { $ref: 'common.v1.yaml#/components/headers/IdempotentReplayed' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreatyVersion' }
+        '400': { $ref: 'common.v1.yaml#/components/responses/BadRequest' }
+        '403': { $ref: 'common.v1.yaml#/components/responses/Forbidden' }
+        '404': { $ref: 'common.v1.yaml#/components/responses/NotFound' }
+        '409':
+          description: treaty-version-conflict (duplicate effective date or version code) or idempotency-key-in-flight
+          content:
+            application/problem+json:
+              schema: { $ref: 'common.v1.yaml#/components/schemas/Problem' }
+        '422': { $ref: 'common.v1.yaml#/components/responses/Unprocessable' }
+components:
+  schemas:
+    Carrier:
+      type: object
+      required: [code, name]
+      properties:
+        code: { $ref: 'common.v1.yaml#/components/schemas/CarrierCode' }
+        name: { type: string }
+    Treaty:
+      type: object
+      required: [treatyId, name, lineOfBusiness, versions]
+      properties:
+        treatyId: { type: string, format: uuid }
+        name: { type: string }
+        lineOfBusiness: { type: string }
+        versions:
+          type: array
+          items: { $ref: '#/components/schemas/TreatyVersion' }
+    TreatyVersion:
+      type: object
+      required: [treatyVersionId, treatyId, versionCode, effectiveFrom, publishedAt, shares]
+      properties:
+        treatyVersionId: { type: string, format: uuid }
+        treatyId: { type: string, format: uuid }
+        versionCode: { type: string }
+        effectiveFrom: { type: string, format: date }
+        publishedAt: { type: string, format: date-time }
+        shares:
+          type: array
+          items:
+            type: object
+            required: [carrierCode, carrierName, sharePercent]
+            properties:
+              carrierCode: { type: string }
+              carrierName: { type: string }
+              sharePercent: { $ref: 'common.v1.yaml#/components/schemas/Percent' }

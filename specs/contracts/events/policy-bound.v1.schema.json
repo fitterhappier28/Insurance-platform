@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clp.example/schemas/events/policy-bound.v1.json",
+  "title": "clp.policy.policy-bound.v1",
+  "$comment": "1.0.0. Carries the full bound Rate Snapshot so the Ledger can book without calling Policy or Rating.",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "clp.policy.policy-bound.v1" },
+    "source": { "const": "urn:clp:policy" },
+    "data": {
+      "type": "object",
+      "required": ["aggregateSeq", "policyId", "policyNumber", "accountId", "revisionNo", "lineOfBusiness", "effectiveFrom", "effectiveTo", "writtenPremium", "currency", "rulesetVersion", "rateManualVersion", "boundAt", "exposures"],
+      "properties": {
+        "aggregateSeq": { "type": "integer", "minimum": 1 },
+        "policyId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+        "policyNumber": { "type": "string", "pattern": "^CP-\\d{4}-\\d{6}$" },
+        "accountId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+        "revisionNo": { "type": "integer", "minimum": 1 },
+        "lineOfBusiness": { "const": "CP" },
+        "effectiveFrom": { "$ref": "envelope.schema.json#/$defs/date" },
+        "effectiveTo": { "$ref": "envelope.schema.json#/$defs/date" },
+        "writtenPremium": { "$ref": "envelope.schema.json#/$defs/money" },
+        "currency": { "const": "USD" },
+        "rulesetVersion": { "type": "string" },
+        "rateManualVersion": { "type": "string" },
+        "boundAt": { "type": "string", "format": "date-time" },
+        "exposures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["exposureId", "coverageCode", "locationId", "buildingId", "unitId", "naicsCode", "limit", "baseRate", "premium", "factors"],
+            "properties": {
+              "exposureId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+              "coverageCode": { "type": "string" },
+              "locationId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+              "buildingId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+              "unitId": { "oneOf": [{ "$ref": "envelope.schema.json#/$defs/uuid" }, { "type": "null" }] },
+              "naicsCode": { "$ref": "envelope.schema.json#/$defs/naicsCode" },
+              "limit": { "$ref": "envelope.schema.json#/$defs/money" },
+              "baseRate": { "$ref": "envelope.schema.json#/$defs/rate" },
+              "premium": { "$ref": "envelope.schema.json#/$defs/money" },
+              "factors": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["step", "code", "value", "premiumAfter"],
+                  "properties": {
+                    "step": { "type": "integer", "minimum": 0 },
+                    "code": { "type": "string" },
+                    "value": { "$ref": "envelope.schema.json#/$defs/rate" },
+                    "premiumAfter": { "$ref": "envelope.schema.json#/$defs/money" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

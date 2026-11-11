@@ -1,0 +1,25 @@
+# Reference material, kept locally only
+.agents/
+specs/prerequisites/
+
+# Local environment
+.env
+*.local.json
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.trx
+coverage*.xml
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Agent scratch
+.scratch/

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://clp.example/schemas/events/premium-booked.v1.json",
+  "title": "clp.ledger.premium-booked.v1",
+  "$comment": "1.0.0",
+  "allOf": [{ "$ref": "envelope.schema.json" }],
+  "properties": {
+    "type": { "const": "clp.ledger.premium-booked.v1" },
+    "source": { "const": "urn:clp:ledger" },
+    "data": {
+      "type": "object",
+      "required": ["aggregateSeq", "transactionId", "transactionType", "policyId", "policyNumber", "revisionNo", "writtenPremium", "currency", "treatyVersionId", "bookedAt", "allocations"],
+      "properties": {
+        "aggregateSeq": { "type": "integer", "minimum": 1 },
+        "transactionId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+        "transactionType": { "type": "string", "description": "NewBusiness in MVP. Consumers tolerate unknown values." },
+        "policyId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+        "policyNumber": { "type": "string" },
+        "revisionNo": { "type": "integer", "minimum": 1 },
+        "writtenPremium": { "$ref": "envelope.schema.json#/$defs/money" },
+        "currency": { "const": "USD" },
+        "treatyVersionId": { "$ref": "envelope.schema.json#/$defs/uuid" },
+        "bookedAt": { "type": "string", "format": "date-time" },
+        "allocations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["carrierCode", "amount"],
+            "properties": {
+              "carrierCode": { "$ref": "envelope.schema.json#/$defs/carrierCode" },
+              "amount": { "$ref": "envelope.schema.json#/$defs/money" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

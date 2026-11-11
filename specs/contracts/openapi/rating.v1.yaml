@@ -1,0 +1,97 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: CLP Rating API
+  version: 1.0.0
+  description: |
+    Stateless pricing with factor-level breakdown. Returns price only, never eligibility.
+    Requirements: FR-5, FR-13, FR-16. Manual: specs/product/rules-and-rating.md.
+    POST /v1/rates is a side-effect-free calculation and does not take an Idempotency-Key.
+servers:
+  - url: http://localhost:5103
+paths:
+  /v1/rates:
+    post:
+      operationId: rate
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+        - $ref: 'common.v1.yaml#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [effectiveDate, exposures]
+              properties:
+                effectiveDate: { type: string, format: date }
+                rateManualVersion: { type: string, description: Pin a version; default is the version effective on effectiveDate. }
+                exposures:
+                  type: array
+                  minItems: 1
+                  items: { $ref: 'common.v1.yaml#/components/schemas/RiskExposure' }
+      responses:
+        '200':
+          description: Price
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rateManualVersion, totalPremium, currency, exposures]
+                properties:
+                  rateManualVersion: { type: string, examples: ['CP-RATE-2026.07'] }
+                  totalPremium: { $ref: 'common.v1.yaml#/components/schemas/Money' }
+                  currency: { const: USD }
+                  exposures:
+                    type: array
+                    items:
+                      type: object
+                      required: [exposureRef, baseRate, premium, factors]
+                      properties:
+                        exposureRef: { type: string }
+                        baseRate: { $ref: 'common.v1.yaml#/components/schemas/Rate' }
+                        premium: { $ref: 'common.v1.yaml#/components/schemas/Money' }
+                        factors:
+                          type: array
+                          items: { $ref: 'common.v1.yaml#/components/schemas/RatedFactor' }
+              examples:
+                reference:
+                  value:
+                    rateManualVersion: CP-RATE-2026.07
+                    totalPremium: '1410.75'
+                    currency: USD
+                    exposures:
+                      - exposureRef: exp-1
+                        baseRate: '0.25'
+                        premium: '1410.75'
+                        factors:
+                          - { step: 0, code: BASE_RATE, value: '0.25', premiumAfter: '1250.00' }
+                          - { step: 1, code: OCCUPANCY, value: '0.95', premiumAfter: '1187.50' }
+                          - { step: 2, code: PROTECTION_CLASS, value: '1.10', premiumAfter: '1306.25' }
+                          - { step: 3, code: BUILDING_AGE, value: '1.08', premiumAfter: '1410.75' }
+        '400': { $ref: 'common.v1.yaml#/components/responses/BadRequest' }
+        '403': { $ref: 'common.v1.yaml#/components/responses/Forbidden' }
+        '422': { $ref: 'common.v1.yaml#/components/responses/Unprocessable' }
+  /v1/rate-manuals:
+    get:
+      operationId: listRateManuals
+      parameters:
+        - $ref: 'common.v1.yaml#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: Published rate manuals
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [version, effectiveFrom]
+                      properties:
+                        version: { type: string }
+                        effectiveFrom: { type: string, format: date }
