@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\Ledger.Infrastructure\Ledger.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Platform\Platform.Web\Platform.Web.csproj" />
+    <ProjectReference Include="..\..\..\Platform\Platform.Tenancy\Platform.Tenancy.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\..\..\specs\contracts\openapi\ledger.v1.yaml">
+      <LogicalName>Ledger.Api.ledger.v1.yaml</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>

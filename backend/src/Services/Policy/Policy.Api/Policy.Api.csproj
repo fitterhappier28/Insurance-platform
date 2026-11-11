@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\Policy.Infrastructure\Policy.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Platform\Platform.Web\Platform.Web.csproj" />
+    <ProjectReference Include="..\..\..\Platform\Platform.Tenancy\Platform.Tenancy.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\..\..\specs\contracts\openapi\policy.v1.yaml">
+      <LogicalName>Policy.Api.policy.v1.yaml</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>

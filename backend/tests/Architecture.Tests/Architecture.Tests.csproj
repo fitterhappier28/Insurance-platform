@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NetArchTest.Rules" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AppHost\AppHost.csproj" />
+    <ProjectReference Include="..\..\src\Platform\Platform.Tenancy\Platform.Tenancy.csproj" />
+    <ProjectReference Include="..\..\src\Platform\Platform.Web\Platform.Web.csproj" />
+    <ProjectReference Include="..\..\src\Platform\Platform.Idempotency\Platform.Idempotency.csproj" />
+    <ProjectReference Include="..\..\src\Platform\Platform.Messaging\Platform.Messaging.csproj" />
+    <ProjectReference Include="..\..\src\Services\Policy\Policy.Domain\Policy.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Services\Policy\Policy.Application\Policy.Application.csproj" />
+    <ProjectReference Include="..\..\src\Services\Policy\Policy.Infrastructure\Policy.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Services\Policy\Policy.Api\Policy.Api.csproj" />
+    <ProjectReference Include="..\..\src\Services\Rules\Rules.Domain\Rules.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Services\Rules\Rules.Application\Rules.Application.csproj" />
+    <ProjectReference Include="..\..\src\Services\Rules\Rules.Api\Rules.Api.csproj" />
+    <ProjectReference Include="..\..\src\Services\Rating\Rating.Domain\Rating.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Services\Rating\Rating.Application\Rating.Application.csproj" />
+    <ProjectReference Include="..\..\src\Services\Rating\Rating.Api\Rating.Api.csproj" />
+    <ProjectReference Include="..\..\src\Services\Ledger\Ledger.Domain\Ledger.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Services\Ledger\Ledger.Application\Ledger.Application.csproj" />
+    <ProjectReference Include="..\..\src\Services\Ledger\Ledger.Infrastructure\Ledger.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Services\Ledger\Ledger.Api\Ledger.Api.csproj" />
+  </ItemGroup>
+</Project>

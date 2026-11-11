@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\Rules.Application\Rules.Application.csproj" />
+    <ProjectReference Include="..\..\..\Platform\Platform.Web\Platform.Web.csproj" />
+    <ProjectReference Include="..\..\..\Platform\Platform.Tenancy\Platform.Tenancy.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\..\..\..\specs\contracts\openapi\rules.v1.yaml">
+      <LogicalName>Rules.Api.rules.v1.yaml</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>
