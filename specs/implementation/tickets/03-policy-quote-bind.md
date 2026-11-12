@@ -1,6 +1,6 @@
 # 03: Policy quote and bind
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 **Outcome:** Policy owns tenant-scoped Accounts, Applicants, schedules, Policy Revisions, Quotes, pinned snapshots, and bind state. Quote and Bind are commands; reads use Policy-owned query models. Bind is idempotent and commits the immutable revision with `policy-bound` in its outbox.
 

@@ -112,6 +112,8 @@ public static class ClpAppHost
             .WithEnvironment("ConnectionStrings__policy-runtime", LoginConnection("127.0.0.1,14331", "PolicyDb", "policy_runtime", policyRuntime))
             .WaitFor(policyDb)
             .WaitForCompletion(policyLogins)
+            .WaitFor(rules)
+            .WaitFor(rating)
             .WaitFor(kafka)
             .WaitForCompletion(topics);
 
@@ -126,8 +128,6 @@ public static class ClpAppHost
             .WaitFor(kafka)
             .WaitForCompletion(topics);
 
-        _ = rules;
-        _ = rating;
     }
 
     private static IResourceBuilder<ContainerResource> AddLoginInit(

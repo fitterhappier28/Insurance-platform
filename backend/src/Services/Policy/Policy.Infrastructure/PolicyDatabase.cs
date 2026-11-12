@@ -11,6 +11,7 @@ public static class PolicyDatabase
 
     public static async Task AddPolicyDatabaseAsync(this WebApplicationBuilder builder)
     {
+        builder.Services.AddDbContext<PolicyDbContext>();
         var ownerConnection = builder.Configuration["ConnectionStrings:policy-owner"];
         var runtimeConnection = builder.Configuration["ConnectionStrings:policy-runtime"];
         if (string.IsNullOrWhiteSpace(ownerConnection) || string.IsNullOrWhiteSpace(runtimeConnection))

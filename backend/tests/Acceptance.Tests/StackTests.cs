@@ -6,6 +6,7 @@ using Aspire.Hosting.Testing;
 using Microsoft.Data.SqlClient;
 using Platform.Tests;
 using Shouldly;
+using System.Text;
 
 namespace Acceptance.Tests;
 
@@ -126,5 +127,174 @@ public class StackTests(StackFixture stack) : IClassFixture<StackFixture>
         command.CommandText = "SELECT COUNT(*) FROM __EFMigrationsHistory";
         var count = (int)(await command.ExecuteScalarAsync())!;
         count.ShouldBeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task FR02_account_create_is_idempotent_and_tenant_scoped()
+    {
+        var client = stack.App.CreateHttpClient("policy-api");
+        const string accountBody = """
+            {"name":"Bayview Properties LLC","applicant":{"legalName":"Bayview Properties LLC","fein":"12-3456789","mailingAddress":{"street":"100 Bay St","city":"Tampa","state":"FL","postalCode":"33602"}}}
+            """;
+        using var first = await Send(client, HttpMethod.Post, "/v1/accounts", accountBody, "account-fr02");
+        first.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var firstText = await first.Content.ReadAsStringAsync();
+        using var replay = await Send(client, HttpMethod.Post, "/v1/accounts", accountBody, "account-fr02");
+        replay.StatusCode.ShouldBe(HttpStatusCode.Created);
+        replay.Headers.GetValues("Idempotent-Replayed").Single().ShouldBe("true");
+        (await replay.Content.ReadAsStringAsync()).ShouldBe(firstText);
+
+        using var differentRequest = await Send(client, HttpMethod.Post, "/v1/accounts",
+            accountBody.Replace("Bayview Properties LLC", "Different Account", StringComparison.Ordinal), "account-fr02");
+        differentRequest.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+
+        using var accountJson = JsonDocument.Parse(firstText);
+        var accountId = accountJson.RootElement.GetProperty("accountId").GetGuid();
+        using var crossTenantRead = await Send(client, HttpMethod.Get, $"/v1/accounts/{accountId}", null,
+            tenantId: "northstar");
+        crossTenantRead.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task FR06_quote_produces_reference_snapshot_and_FR07_bind_is_idempotent_with_atomic_outbox()
+    {
+        var client = stack.App.CreateHttpClient("policy-api");
+        var accountId = await CreateAccount(client);
+        var quoteBody = QuoteBody(accountId, 1998, 5);
+        using var quoteResponse = await Send(client, HttpMethod.Post, "/v1/quotes", quoteBody, "reference-quote-bind");
+        quoteResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        using var quoteJson = JsonDocument.Parse(await quoteResponse.Content.ReadAsStringAsync());
+        var quote = quoteJson.RootElement;
+        quote.GetProperty("status").GetString().ShouldBe("Quoted");
+        quote.GetProperty("decision").GetProperty("rulesetVersion").GetString().ShouldBe("CP-RULES-2026.07");
+        quote.GetProperty("rating").GetProperty("writtenPremium").GetString().ShouldBe("1410.75");
+        var quoteId = quote.GetProperty("quoteId").GetGuid();
+        var policyId = quote.GetProperty("policyId").GetGuid();
+
+        using var bind = await Send(client, HttpMethod.Post, $"/v1/quotes/{quoteId}/bind", "{}", "reference-bind");
+        bind.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var bindBody = await bind.Content.ReadAsStringAsync();
+        using var bindJson = JsonDocument.Parse(bindBody);
+        bindJson.RootElement.GetProperty("writtenPremium").GetString().ShouldBe("1410.75");
+        bindJson.RootElement.GetProperty("bookingStatus").GetString().ShouldBe("Pending");
+        using var replay = await Send(client, HttpMethod.Post, $"/v1/quotes/{quoteId}/bind", "{}", "reference-bind");
+        replay.StatusCode.ShouldBe(HttpStatusCode.OK);
+        replay.Headers.GetValues("Idempotent-Replayed").Single().ShouldBe("true");
+        (await replay.Content.ReadAsStringAsync()).ShouldBe(bindBody);
+
+        using var policyResponse = await Send(client, HttpMethod.Get, $"/v1/policies/{policyId}", null);
+        policyResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var policyJson = JsonDocument.Parse(await policyResponse.Content.ReadAsStringAsync());
+        policyJson.RootElement.GetProperty("bookingStatus").GetString().ShouldBe("Pending");
+
+        await using var connection = await OpenPolicyRuntimeConnection();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT r.Status, COUNT(o.MessageId)
+            FROM PolicyRevisions r
+            LEFT JOIN PolicyOutbox o ON JSON_VALUE(o.PayloadJson, '$.data.policyId') = CONVERT(nvarchar(36), r.PolicyId)
+              AND o.Type = 'clp.policy.policy-bound.v1'
+            WHERE r.QuoteId = @QuoteId
+            GROUP BY r.Status
+            """;
+        command.Parameters.AddWithValue("@QuoteId", quoteId);
+        await using var reader = await command.ExecuteReaderAsync();
+        (await reader.ReadAsync()).ShouldBeTrue();
+        reader.GetString(0).ShouldBe("Bound");
+        reader.GetInt32(1).ShouldBe(1);
+        await reader.DisposeAsync();
+
+        await using var immutabilityCheck = connection.CreateCommand();
+        immutabilityCheck.CommandText = "UPDATE PolicyRevisions SET ScheduleJson = N'{}' WHERE QuoteId = @QuoteId";
+        immutabilityCheck.Parameters.AddWithValue("@QuoteId", quoteId);
+        await Should.ThrowAsync<SqlException>(() => immutabilityCheck.ExecuteNonQueryAsync());
+    }
+
+    [Fact]
+    public async Task FR06_quote_keeps_price_for_refer_and_omits_price_for_decline()
+    {
+        var client = stack.App.CreateHttpClient("policy-api");
+        var accountId = await CreateAccount(client);
+        using var refer = await Send(client, HttpMethod.Post, "/v1/quotes", QuoteBody(accountId, 1972, 5), "refer-quote");
+        refer.StatusCode.ShouldBe(HttpStatusCode.Created);
+        using var referJson = JsonDocument.Parse(await refer.Content.ReadAsStringAsync());
+        referJson.RootElement.GetProperty("status").GetString().ShouldBe("Referred");
+        referJson.RootElement.GetProperty("rating").GetProperty("writtenPremium").ValueKind.ShouldBe(JsonValueKind.String);
+
+        using var decline = await Send(client, HttpMethod.Post, "/v1/quotes", QuoteBody(accountId, 1998, 10), "decline-quote");
+        decline.StatusCode.ShouldBe(HttpStatusCode.Created);
+        using var declineJson = JsonDocument.Parse(await decline.Content.ReadAsStringAsync());
+        declineJson.RootElement.GetProperty("status").GetString().ShouldBe("Declined");
+        declineJson.RootElement.GetProperty("rating").ValueKind.ShouldBe(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task FR07_expired_quote_cannot_bind()
+    {
+        var client = stack.App.CreateHttpClient("policy-api");
+        var accountId = await CreateAccount(client);
+        using var response = await Send(client, HttpMethod.Post, "/v1/quotes", QuoteBody(accountId, 1998, 5), "expired-quote");
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var quoteId = document.RootElement.GetProperty("quoteId").GetGuid();
+        await using var connection = await OpenPolicyRuntimeConnection();
+        await using (var update = connection.CreateCommand())
+        {
+            update.CommandText = "UPDATE PolicyRevisions SET ExpiresAt = DATEADD(day, -1, SYSUTCDATETIME()) WHERE QuoteId = @QuoteId";
+            update.Parameters.AddWithValue("@QuoteId", quoteId);
+            (await update.ExecuteNonQueryAsync()).ShouldBe(1);
+        }
+        using var bind = await Send(client, HttpMethod.Post, $"/v1/quotes/{quoteId}/bind", "{}", "expired-bind");
+        bind.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        (await bind.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString().ShouldBe("quote-expired");
+    }
+
+    private static async Task<Guid> CreateAccount(HttpClient client)
+    {
+        const string body = """
+            {"name":"Bayview Properties LLC","applicant":{"legalName":"Bayview Properties LLC","fein":"12-3456789","mailingAddress":{"street":"100 Bay St","city":"Tampa","state":"FL","postalCode":"33602"}}}
+            """;
+        using var response = await Send(client, HttpMethod.Post, "/v1/accounts", body, "account-fr02");
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accountId").GetGuid();
+    }
+
+    private static string QuoteBody(Guid accountId, int yearBuilt, int protectionClass) => $$"""
+        {"accountId":"{{accountId:D}}","effectiveFrom":"2026-12-01","effectiveTo":"2027-12-01",
+         "coverages":[{"code":"BLDG","deductible":"5000"}],
+         "locations":[{"ref":"loc-1","address":{"street":"100 Bay St","city":"Tampa","state":"FL","postalCode":"33602"},"protectionClass":{{protectionClass}},"buildings":[{"ref":"bldg-1","construction":"JoistedMasonry","yearBuilt":{{yearBuilt}},"squareFeet":10000}]}],
+         "exposures":[{"ref":"exp-1","coverageCode":"BLDG","subjectRef":"bldg-1","limit":"500000","naicsCode":"531110"}]}
+        """;
+
+    private static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path,
+        string? body, string? idempotencyKey = null, string tenantId = "harbor")
+    {
+        using var request = new HttpRequestMessage(method, path);
+        request.Headers.Add("X-Tenant-Id", tenantId);
+        request.Headers.Add("X-Correlation-Id", Guid.NewGuid().ToString("D"));
+        if (idempotencyKey is not null)
+        {
+            request.Headers.Add("Idempotency-Key", idempotencyKey);
+        }
+        if (body is not null)
+        {
+            request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+        }
+        return await client.SendAsync(request);
+    }
+
+    private static async Task<SqlConnection> OpenPolicyRuntimeConnection()
+    {
+        var connection = new SqlConnection(new SqlConnectionStringBuilder
+        {
+            DataSource = "127.0.0.1,14331",
+            InitialCatalog = "PolicyDb",
+            UserID = "policy_runtime",
+            Password = StackFixture.PolicyRuntime,
+            TrustServerCertificate = true,
+            ConnectTimeout = 10
+        }.ConnectionString);
+        await connection.OpenAsync();
+        return connection;
     }
 }
