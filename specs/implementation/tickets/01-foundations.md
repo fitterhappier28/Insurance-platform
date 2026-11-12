@@ -1,6 +1,6 @@
 # 01: Foundations
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 **Outcome:** A small local topology starts Policy, Rules, Rating, Ledger, their required stateful databases, and Kafka with health and telemetry. Architecture checks enforce BCL-only Domain projects and database ownership.
 

@@ -1,3 +1,7 @@
+using System.Security.Cryptography;
+using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+
 var app = ClpAppHost.Create(args);
 app.Run();
 
@@ -8,9 +12,53 @@ public static class ClpAppHost
     public static IDistributedApplicationBuilder CreateBuilder(string[] args)
     {
         var builder = DistributedApplication.CreateBuilder(args);
+        ConfigureLocalSecrets(builder);
         AddResources(builder);
         return builder;
     }
+
+    private static void ConfigureLocalSecrets(IDistributedApplicationBuilder builder)
+    {
+        var path = Path.Combine(builder.AppHostDirectory, "secrets.local.json");
+        var parameterNames = new[]
+        {
+            "sql-policy-password",
+            "sql-policy-owner-password",
+            "sql-policy-runtime-password",
+            "sql-ledger-password",
+            "sql-ledger-owner-password",
+            "sql-ledger-runtime-password"
+        };
+
+        if (!File.Exists(path))
+        {
+            var parameters = parameterNames.ToDictionary(
+                name => name,
+                name => builder.Configuration[$"Parameters:{name}"] ?? GeneratePassword());
+            var json = JsonSerializer.Serialize(new { Parameters = parameters }, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+            File.WriteAllText(path, json);
+        }
+
+        var localConfiguration = new ConfigurationBuilder()
+            .AddJsonFile(path, optional: false, reloadOnChange: false)
+            .Build();
+        var missing = parameterNames
+            .Where(name => string.IsNullOrWhiteSpace(localConfiguration[$"Parameters:{name}"]))
+            .ToArray();
+        if (missing.Length > 0)
+        {
+            throw new InvalidOperationException(
+                $"Local secrets file '{path}' is missing required parameters: {string.Join(", ", missing)}.");
+        }
+
+        builder.Configuration.AddJsonFile(path, optional: false, reloadOnChange: false);
+    }
+
+    private static string GeneratePassword() =>
+        $"Clp!{Convert.ToHexString(RandomNumberGenerator.GetBytes(24))}a9";
 
     public static void AddResources(IDistributedApplicationBuilder builder)
     {

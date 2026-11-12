@@ -1,6 +1,6 @@
 # 02: Rules and Rating
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 **Outcome:** Rules and Rating expose separate versioned APIs. Rules returns an eligibility Decision from Exposure attributes. Rating returns a deterministic decimal Rate Snapshot with factor-level steps. The sample rules and rates are explicitly illustrative.
 

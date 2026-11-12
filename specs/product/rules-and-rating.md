@@ -21,6 +21,8 @@ Policy flattens each Exposure into a rating and rules input. Building and Locati
 
 ## Ruleset CP-RULES-2026.07
 
+The reference Ruleset and Rate Manual are effective from 2026-07-01. Requests before that date, or requests pinned to an unpublished version, are not supported by this learning fixture.
+
 Rules are evaluated for every Exposure. The Decision for the Quote is the most severe outcome across Exposures: Decline over Refer over Straight-Through. All triggered reasons are returned.
 
 | Code | Outcome | Condition |

@@ -41,6 +41,8 @@ Requires the .NET 10 SDK and Docker Desktop. Start the local topology with:
 dotnet run --project backend/src/AppHost
 ```
 
+On first start, AppHost creates `backend/src/AppHost/secrets.local.json` with local SQL Server passwords. The file is gitignored. Existing Aspire parameter values are copied into it so previously initialized SQL data volumes keep using the same credentials.
+
 | Context | Local API |
 | --- | --- |
 | Policy | `http://localhost:5101/swagger` |

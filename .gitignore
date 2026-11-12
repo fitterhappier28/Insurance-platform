@@ -4,8 +4,10 @@ skills-lock.json
 specs/prerequisites/
 
 # Local environment
+temp
 .env
 *.local.json
+backend/src/AppHost/secrets.local.json
 
 # .NET
 bin/
