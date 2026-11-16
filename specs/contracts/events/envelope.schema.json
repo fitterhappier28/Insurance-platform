@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://clp.example/schemas/events/envelope.schema.json",
-  "title": "CLP CloudEvents envelope",
+  "title": "Insurance Management Platform CloudEvents envelope",
   "$comment": "1.0.0",
   "type": "object",
   "required": ["specversion", "id", "source", "type", "subject", "time", "datacontenttype", "dataschema", "tenantid", "correlationid", "data"],

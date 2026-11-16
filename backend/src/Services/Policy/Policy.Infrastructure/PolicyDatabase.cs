@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Platform.Web;
@@ -12,8 +13,10 @@ public static class PolicyDatabase
     public static async Task AddPolicyDatabaseAsync(this WebApplicationBuilder builder)
     {
         builder.Services.AddDbContext<PolicyDbContext>();
-        var ownerConnection = builder.Configuration["ConnectionStrings:policy-owner"];
-        var runtimeConnection = builder.Configuration["ConnectionStrings:policy-runtime"];
+        var ownerConnection = builder.Configuration["ConnectionStrings:policy-owner"]
+            ?? BuildLoginConnection(builder, "Owner");
+        var runtimeConnection = builder.Configuration["ConnectionStrings:policy-runtime"]
+            ?? BuildLoginConnection(builder, "Runtime");
         if (string.IsNullOrWhiteSpace(ownerConnection) || string.IsNullOrWhiteSpace(runtimeConnection))
         {
             return;
@@ -37,5 +40,23 @@ public static class PolicyDatabase
         {
             builder.Services.AddHealthChecks().AddCheck("kafka", new KafkaHealthCheck(KafkaEndpoint.Parse(kafka)));
         }
+    }
+
+    private static string? BuildLoginConnection(WebApplicationBuilder builder, string loginKind)
+    {
+        var baseConnection = builder.Configuration[$"ConnectionStrings:{ConnectionName}"];
+        var user = builder.Configuration[$"PolicyDatabase:{loginKind}User"];
+        var password = builder.Configuration[$"PolicyDatabase:{loginKind}Password"];
+        if (string.IsNullOrWhiteSpace(baseConnection) || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(password))
+        {
+            return null;
+        }
+
+        var connection = new SqlConnectionStringBuilder(baseConnection)
+        {
+            UserID = user,
+            Password = password
+        };
+        return connection.ConnectionString;
     }
 }

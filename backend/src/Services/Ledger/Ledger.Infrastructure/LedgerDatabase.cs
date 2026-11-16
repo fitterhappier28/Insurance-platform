@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Platform.Web;
@@ -11,8 +12,10 @@ public static class LedgerDatabase
 
     public static async Task AddLedgerDatabaseAsync(this WebApplicationBuilder builder)
     {
-        var ownerConnection = builder.Configuration["ConnectionStrings:ledger-owner"];
-        var runtimeConnection = builder.Configuration["ConnectionStrings:ledger-runtime"];
+        var ownerConnection = builder.Configuration["ConnectionStrings:ledger-owner"]
+            ?? BuildLoginConnection(builder, "Owner");
+        var runtimeConnection = builder.Configuration["ConnectionStrings:ledger-runtime"]
+            ?? BuildLoginConnection(builder, "Runtime");
         if (string.IsNullOrWhiteSpace(ownerConnection) || string.IsNullOrWhiteSpace(runtimeConnection))
         {
             return;
@@ -31,5 +34,23 @@ public static class LedgerDatabase
         {
             builder.Services.AddHealthChecks().AddCheck("kafka", new KafkaHealthCheck(KafkaEndpoint.Parse(kafka)));
         }
+    }
+
+    private static string? BuildLoginConnection(WebApplicationBuilder builder, string loginKind)
+    {
+        var baseConnection = builder.Configuration[$"ConnectionStrings:{ConnectionName}"];
+        var user = builder.Configuration[$"LedgerDatabase:{loginKind}User"];
+        var password = builder.Configuration[$"LedgerDatabase:{loginKind}Password"];
+        if (string.IsNullOrWhiteSpace(baseConnection) || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(password))
+        {
+            return null;
+        }
+
+        var connection = new SqlConnectionStringBuilder(baseConnection)
+        {
+            UserID = user,
+            Password = password
+        };
+        return connection.ConnectionString;
     }
 }

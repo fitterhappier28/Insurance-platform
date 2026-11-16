@@ -5,8 +5,8 @@ using System.Globalization;
 using System.Net.Http.Json;
 using System.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json.Nodes;
 using Platform.Tenancy;
+using Policy.Application;
 using Policy.Domain;
 using Policy.Infrastructure;
 
@@ -344,7 +344,7 @@ public static class PolicyApiEndpoints
         {
             return Conflict("quote-not-bindable", "Only a Straight-Through Quote can bind.");
         }
-        if (row.ExpiresAt <= DateTimeOffset.UtcNow)
+        if (QuoteFreshness.HasExpired(row.ExpiresAt, DateTimeOffset.UtcNow))
         {
             return Conflict("quote-expired", "Quote has expired.");
         }
@@ -366,7 +366,7 @@ public static class PolicyApiEndpoints
         }
         catch (PolicyDependencyException exception)
         {
-            if (exception.Code is "ruleset-unavailable" or "rate-manual-unavailable"
+            if (QuoteFreshness.IsPinnedVersionUnavailable(exception.Code)
                 || !exception.Unavailable)
             {
                 return Conflict("quote-stale", "Pinned Rules or Rating version is no longer available.");
@@ -374,10 +374,7 @@ public static class PolicyApiEndpoints
             return Problem(exception.Code, "Rules or Rating is unavailable.", StatusCodes.Status503ServiceUnavailable);
         }
 
-        if (evaluation.Outcome != "StraightThrough"
-            || evaluation.RatingJson is null
-            || !JsonNode.DeepEquals(JsonNode.Parse(row.DecisionJson), JsonNode.Parse(evaluation.DecisionJson))
-            || !JsonNode.DeepEquals(JsonNode.Parse(row.RatingJson), JsonNode.Parse(evaluation.RatingJson)))
+        if (QuoteFreshness.IsStale(row.DecisionJson, row.RatingJson, evaluation))
         {
             return Conflict("quote-stale", "Decision or Rate Snapshot changed since the Quote was created.");
         }

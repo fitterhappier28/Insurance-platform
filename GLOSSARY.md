@@ -1,4 +1,4 @@
-# Commercial Lines Platform
+# Insurance Management Platform
 
 Business language for the Commercial Property quote, bind, and premium-booking learning flow.
 

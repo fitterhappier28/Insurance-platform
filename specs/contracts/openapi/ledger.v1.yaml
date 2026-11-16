@@ -1,7 +1,7 @@
 openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
-  title: CLP Ledger API
+  title: Insurance Management Platform Ledger API
   version: 1.0.0
   description: Read-only access to immutable premium transactions. Ledger writes only by consuming policy-bound.
 servers:

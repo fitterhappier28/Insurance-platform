@@ -4,7 +4,7 @@ Guidance for anyone, human or agent, changing this repository. Read this first, 
 
 ## What this is
 
-Commercial Lines Platform (CLP): a learning architecture for Commercial Property quote, bind, and premium booking across four contexts (Policy, Rules, Rating, Ledger). See [README.md](README.md).
+Insurance Management Platform: a learning architecture for Commercial Property quote, bind, and premium booking across four contexts (Policy, Rules, Rating, Ledger). See [README.md](README.md).
 
 ## Spec-driven workflow
 

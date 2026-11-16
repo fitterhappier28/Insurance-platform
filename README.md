@@ -1,4 +1,4 @@
-# Commercial Lines Platform (learning project)
+# Insurance Management Platform (learning project)
 
 A focused Commercial Property quote-to-bind architecture exercise. It demonstrates domain boundaries, separate eligibility and pricing, versioned contracts, idempotent commands, Kafka integration through transactional outbox/inbox, and an immutable premium record with factor-level traceability.
 

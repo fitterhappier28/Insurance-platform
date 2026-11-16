@@ -1,9 +1,9 @@
 openapi: 3.1.0
 jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
 info:
-  title: CLP common components
+  title: Insurance Management Platform common components
   version: 1.0.0
-  description: Shared parameters, headers, responses and schemas referenced by every CLP service contract.
+  description: Shared parameters, headers, responses and schemas referenced by every Insurance Management Platform service contract.
 paths: {}
 components:
   parameters:

@@ -26,7 +26,7 @@ public sealed class PolicyDbContext(DbContextOptions<PolicyDbContext> options) :
 
         modelBuilder.Entity<PolicyRevisionEntity>(entity =>
         {
-            entity.ToTable("PolicyRevisions");
+            entity.ToTable("PolicyRevisions", table => table.HasTrigger("TR_PolicyRevisions_BoundImmutable"));
             entity.HasKey(item => item.QuoteId);
             entity.Property(item => item.TenantId).HasMaxLength(32).IsRequired();
             entity.Property(item => item.Status).HasMaxLength(24).IsRequired();

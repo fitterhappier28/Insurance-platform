@@ -20,7 +20,7 @@ public sealed class StackFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.AppHost>();
+        var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.AppHost>(["UseSqlDataVolumes=false"]);
         Set(builder, "sql-policy-password", PolicySa);
         Set(builder, "sql-policy-owner-password", "PolicyOw#2026x");
         Set(builder, "sql-policy-runtime-password", PolicyRuntime);
@@ -97,9 +97,8 @@ public class StackTests(StackFixture stack) : IClassFixture<StackFixture>
     [Fact]
     public async Task NFR17_login_from_one_instance_is_rejected_by_another()
     {
-        var rejected = new SqlConnectionStringBuilder
+        var rejected = new SqlConnectionStringBuilder(await stack.App.GetConnectionStringAsync("ledger-db"))
         {
-            DataSource = "127.0.0.1,14332",
             UserID = "sa",
             Password = StackFixture.PolicySa,
             TrustServerCertificate = true,
@@ -112,9 +111,8 @@ public class StackTests(StackFixture stack) : IClassFixture<StackFixture>
     [Fact]
     public async Task NFR29_runtime_login_reads_its_own_migration_history()
     {
-        var own = new SqlConnectionStringBuilder
+        var own = new SqlConnectionStringBuilder(await stack.App.GetConnectionStringAsync("policy-db"))
         {
-            DataSource = "127.0.0.1,14331",
             InitialCatalog = "PolicyDb",
             UserID = "policy_runtime",
             Password = StackFixture.PolicyRuntime,
@@ -167,13 +165,14 @@ public class StackTests(StackFixture stack) : IClassFixture<StackFixture>
         var quote = quoteJson.RootElement;
         quote.GetProperty("status").GetString().ShouldBe("Quoted");
         quote.GetProperty("decision").GetProperty("rulesetVersion").GetString().ShouldBe("CP-RULES-2026.07");
+        quote.GetProperty("rating").GetProperty("rateManualVersion").GetString().ShouldBe("CP-RATE-2026.07");
         quote.GetProperty("rating").GetProperty("writtenPremium").GetString().ShouldBe("1410.75");
         var quoteId = quote.GetProperty("quoteId").GetGuid();
         var policyId = quote.GetProperty("policyId").GetGuid();
 
         using var bind = await Send(client, HttpMethod.Post, $"/v1/quotes/{quoteId}/bind", "{}", "reference-bind");
-        bind.StatusCode.ShouldBe(HttpStatusCode.OK);
         var bindBody = await bind.Content.ReadAsStringAsync();
+        bind.StatusCode.ShouldBe(HttpStatusCode.OK, bindBody);
         using var bindJson = JsonDocument.Parse(bindBody);
         bindJson.RootElement.GetProperty("writtenPremium").GetString().ShouldBe("1410.75");
         bindJson.RootElement.GetProperty("bookingStatus").GetString().ShouldBe("Pending");
@@ -204,6 +203,23 @@ public class StackTests(StackFixture stack) : IClassFixture<StackFixture>
         reader.GetInt32(1).ShouldBe(1);
         await reader.DisposeAsync();
 
+        await using var eventCheck = connection.CreateCommand();
+        eventCheck.CommandText = """
+            SELECT PayloadJson
+            FROM PolicyOutbox
+            WHERE Type = 'clp.policy.policy-bound.v1'
+              AND JSON_VALUE(PayloadJson, '$.data.policyId') = @PolicyId
+            """;
+        eventCheck.Parameters.AddWithValue("@PolicyId", policyId.ToString("D"));
+        var eventJson = (string?)await eventCheck.ExecuteScalarAsync();
+        eventJson.ShouldNotBeNull();
+        using var eventDocument = JsonDocument.Parse(eventJson!);
+        var eventData = eventDocument.RootElement.GetProperty("data");
+        eventData.GetProperty("rulesetVersion").GetString().ShouldBe("CP-RULES-2026.07");
+        eventData.GetProperty("rateManualVersion").GetString().ShouldBe("CP-RATE-2026.07");
+        eventData.GetProperty("writtenPremium").GetString().ShouldBe("1410.75");
+        eventData.GetProperty("exposures")[0].GetProperty("factors").GetArrayLength().ShouldBeGreaterThan(0);
+
         await using var immutabilityCheck = connection.CreateCommand();
         immutabilityCheck.CommandText = "UPDATE PolicyRevisions SET ScheduleJson = N'{}' WHERE QuoteId = @QuoteId";
         immutabilityCheck.Parameters.AddWithValue("@QuoteId", quoteId);
@@ -229,24 +245,47 @@ public class StackTests(StackFixture stack) : IClassFixture<StackFixture>
     }
 
     [Fact]
-    public async Task FR07_expired_quote_cannot_bind()
+    public async Task FR13_quote_and_bind_are_tenant_scoped_and_bind_key_is_request_bound()
     {
         var client = stack.App.CreateHttpClient("policy-api");
         var accountId = await CreateAccount(client);
-        using var response = await Send(client, HttpMethod.Post, "/v1/quotes", QuoteBody(accountId, 1998, 5), "expired-quote");
-        response.StatusCode.ShouldBe(HttpStatusCode.Created);
-        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        var quoteId = document.RootElement.GetProperty("quoteId").GetGuid();
-        await using var connection = await OpenPolicyRuntimeConnection();
-        await using (var update = connection.CreateCommand())
-        {
-            update.CommandText = "UPDATE PolicyRevisions SET ExpiresAt = DATEADD(day, -1, SYSUTCDATETIME()) WHERE QuoteId = @QuoteId";
-            update.Parameters.AddWithValue("@QuoteId", quoteId);
-            (await update.ExecuteNonQueryAsync()).ShouldBe(1);
-        }
-        using var bind = await Send(client, HttpMethod.Post, $"/v1/quotes/{quoteId}/bind", "{}", "expired-bind");
+        using var quoteResponse = await Send(client, HttpMethod.Post, "/v1/quotes",
+            QuoteBody(accountId, 1998, 5), "tenant-quote");
+        quoteResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var quote = await quoteResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var quoteId = quote.GetProperty("quoteId").GetGuid();
+
+        using var crossTenantQuote = await Send(client, HttpMethod.Get, $"/v1/quotes/{quoteId}", null,
+            tenantId: "northstar");
+        crossTenantQuote.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        using var crossTenantBind = await Send(client, HttpMethod.Post, $"/v1/quotes/{quoteId}/bind", "{}",
+            "tenant-bind", "northstar");
+        crossTenantBind.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        using var bind = await Send(client, HttpMethod.Post, $"/v1/quotes/{quoteId}/bind", "{}", "tenant-bind");
+        bind.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var reusedForOtherQuote = await Send(client, HttpMethod.Post,
+            $"/v1/quotes/{Guid.NewGuid():D}/bind", "{}", "tenant-bind");
+        reusedForOtherQuote.StatusCode.ShouldBe(HttpStatusCode.UnprocessableEntity);
+        (await reusedForOtherQuote.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString()
+            .ShouldBe("idempotency-key-reused");
+    }
+
+    [Fact]
+    public async Task FR07_referred_quote_cannot_bind()
+    {
+        var client = stack.App.CreateHttpClient("policy-api");
+        var accountId = await CreateAccount(client);
+        using var quoteResponse = await Send(client, HttpMethod.Post, "/v1/quotes",
+            QuoteBody(accountId, 1972, 5), "refer-bind-quote");
+        quoteResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var quote = await quoteResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var quoteId = quote.GetProperty("quoteId").GetGuid();
+
+        using var bind = await Send(client, HttpMethod.Post, $"/v1/quotes/{quoteId}/bind", "{}", "refer-bind");
         bind.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        (await bind.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString().ShouldBe("quote-expired");
+        (await bind.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString()
+            .ShouldBe("quote-not-bindable");
     }
 
     private static async Task<Guid> CreateAccount(HttpClient client)
@@ -283,11 +322,11 @@ public class StackTests(StackFixture stack) : IClassFixture<StackFixture>
         return await client.SendAsync(request);
     }
 
-    private static async Task<SqlConnection> OpenPolicyRuntimeConnection()
+    private async Task<SqlConnection> OpenPolicyRuntimeConnection()
     {
-        var connection = new SqlConnection(new SqlConnectionStringBuilder
+        var policyConnectionString = await stack.App.GetConnectionStringAsync("policy-db");
+        var connection = new SqlConnection(new SqlConnectionStringBuilder(policyConnectionString)
         {
-            DataSource = "127.0.0.1,14331",
             InitialCatalog = "PolicyDb",
             UserID = "policy_runtime",
             Password = StackFixture.PolicyRuntime,

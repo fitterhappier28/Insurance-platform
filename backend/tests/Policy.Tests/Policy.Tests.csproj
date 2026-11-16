@@ -15,5 +15,6 @@
   <ItemGroup><Using Include="Xunit" /></ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Services\Policy\Policy.Domain\Policy.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Services\Policy\Policy.Application\Policy.Application.csproj" />
   </ItemGroup>
 </Project>

@@ -3,17 +3,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Policy.Application;
 using Policy.Domain;
 
 namespace Policy.Api;
-
-internal sealed record PolicyEvaluation(
-    string Outcome,
-    string RulesetVersion,
-    string DecisionJson,
-    string? RatingJson,
-    string? RateManualVersion,
-    decimal? WrittenPremium);
 
 internal sealed class PolicyDependencyException(string code, string message, bool unavailable) : Exception(message)
 {

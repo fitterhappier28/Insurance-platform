@@ -29,6 +29,10 @@ public static class ClpAppHost
             "sql-ledger-owner-password",
             "sql-ledger-runtime-password"
         };
+        var configuredParameters = parameterNames
+            .Select(name => new KeyValuePair<string, string?>($"Parameters:{name}", builder.Configuration[$"Parameters:{name}"]))
+            .Where(parameter => parameter.Value is not null)
+            .ToArray();
 
         if (!File.Exists(path))
         {
@@ -55,6 +59,8 @@ public static class ClpAppHost
         }
 
         builder.Configuration.AddJsonFile(path, optional: false, reloadOnChange: false);
+        // Keep values supplied by the caller (including Aspire test overrides) above local defaults.
+        builder.Configuration.AddInMemoryCollection(configuredParameters);
     }
 
     private static string GeneratePassword() =>
@@ -73,18 +79,24 @@ public static class ClpAppHost
         var ledgerRuntime = builder.AddParameter("sql-ledger-runtime-password", secret: true);
 
         var sqlPolicy = builder.AddSqlServer("sql-policy", policySa, port: 14331)
-            .WithDataVolume("clp-sql-policy")
             .WithContainerRuntimeArgs("--memory=2g");
+        if (builder.Configuration.GetValue("UseSqlDataVolumes", true))
+        {
+            sqlPolicy.WithDataVolume("clp-sql-policy");
+        }
         var policyDb = sqlPolicy.AddDatabase("policy-db", "PolicyDb");
 
         var sqlLedger = builder.AddSqlServer("sql-ledger", ledgerSa, port: 14332)
-            .WithDataVolume("clp-sql-ledger")
             .WithContainerRuntimeArgs("--memory=2g");
+        if (builder.Configuration.GetValue("UseSqlDataVolumes", true))
+        {
+            sqlLedger.WithDataVolume("clp-sql-ledger");
+        }
         var ledgerDb = sqlLedger.AddDatabase("ledger-db", "LedgerDb");
 
         var loginsScript = Path.GetFullPath(Path.Combine(builder.AppHostDirectory, "db", "logins.sql"));
-        var policyLogins = AddLoginInit(builder, "sql-policy-logins", "sql-policy", "PolicyDb", "policy_owner", "policy_runtime", policySa, policyOwner, policyRuntime, loginsScript, sqlPolicy);
-        var ledgerLogins = AddLoginInit(builder, "sql-ledger-logins", "sql-ledger", "LedgerDb", "ledger_owner", "ledger_runtime", ledgerSa, ledgerOwner, ledgerRuntime, loginsScript, sqlLedger);
+        var policyLogins = AddLoginInit(builder, "sql-policy-logins", "sql-policy", "PolicyDb", "policy_owner", "policy_runtime", policySa, policyOwner, policyRuntime, loginsScript, policyDb);
+        var ledgerLogins = AddLoginInit(builder, "sql-ledger-logins", "sql-ledger", "LedgerDb", "ledger_owner", "ledger_runtime", ledgerSa, ledgerOwner, ledgerRuntime, loginsScript, ledgerDb);
 
         var kafka = builder.AddKafka("kafka", port: 9092);
         kafka.WithKafkaUI(ui => ui.WithHostPort(8085), "kafka-ui");
@@ -108,8 +120,12 @@ public static class ClpAppHost
             .WithHttpEndpoint(port: 5101, name: "http")
             .WithReference(policyDb)
             .WithReference(kafka)
-            .WithEnvironment("ConnectionStrings__policy-owner", LoginConnection("127.0.0.1,14331", "PolicyDb", "policy_owner", policyOwner))
-            .WithEnvironment("ConnectionStrings__policy-runtime", LoginConnection("127.0.0.1,14331", "PolicyDb", "policy_runtime", policyRuntime))
+            .WithEnvironment("PolicyDatabase__OwnerUser", "policy_owner")
+            .WithEnvironment("PolicyDatabase__OwnerPassword", policyOwner)
+            .WithEnvironment("PolicyDatabase__RuntimeUser", "policy_runtime")
+            .WithEnvironment("PolicyDatabase__RuntimePassword", policyRuntime)
+            .WithEnvironment("PolicyDependencies__RulesBaseUrl", rules.GetEndpoint("http"))
+            .WithEnvironment("PolicyDependencies__RatingBaseUrl", rating.GetEndpoint("http"))
             .WaitFor(policyDb)
             .WaitForCompletion(policyLogins)
             .WaitFor(rules)
@@ -121,8 +137,10 @@ public static class ClpAppHost
             .WithHttpEndpoint(port: 5104, name: "http")
             .WithReference(ledgerDb)
             .WithReference(kafka)
-            .WithEnvironment("ConnectionStrings__ledger-owner", LoginConnection("127.0.0.1,14332", "LedgerDb", "ledger_owner", ledgerOwner))
-            .WithEnvironment("ConnectionStrings__ledger-runtime", LoginConnection("127.0.0.1,14332", "LedgerDb", "ledger_runtime", ledgerRuntime))
+            .WithEnvironment("LedgerDatabase__OwnerUser", "ledger_owner")
+            .WithEnvironment("LedgerDatabase__OwnerPassword", ledgerOwner)
+            .WithEnvironment("LedgerDatabase__RuntimeUser", "ledger_runtime")
+            .WithEnvironment("LedgerDatabase__RuntimePassword", ledgerRuntime)
             .WaitFor(ledgerDb)
             .WaitForCompletion(ledgerLogins)
             .WaitFor(kafka)
@@ -141,7 +159,7 @@ public static class ClpAppHost
         IResourceBuilder<ParameterResource> ownerPassword,
         IResourceBuilder<ParameterResource> runtimePassword,
         string scriptPath,
-        IResourceBuilder<SqlServerServerResource> server)
+        IResourceBuilder<SqlServerDatabaseResource> database)
     {
         return builder.AddContainer(name, "mcr.microsoft.com/mssql/server", "2022-latest")
             .WithEntrypoint("/bin/bash")
@@ -151,17 +169,22 @@ public static class ClpAppHost
             .WithEnvironment("RUNTIME_PASSWORD", runtimePassword)
             .WithArgs("-c", Lf($$"""
                 set -e
+                ready=0
                 for i in $(seq 1 30); do
-                  /opt/mssql-tools18/bin/sqlcmd -S {{serverName}} -U sa -P "$SA_PASSWORD" -C -Q "SELECT 1" && break
+                  if /opt/mssql-tools18/bin/sqlcmd -S {{serverName}} -U sa -P "$SA_PASSWORD" -C -Q "SELECT 1"; then
+                    ready=1
+                    break
+                  fi
                   sleep 2
                 done
+                if [ "$ready" != "1" ]; then
+                  echo "{{serverName}} did not accept SQL commands within 60 seconds" >&2
+                  exit 1
+                fi
                 /opt/mssql-tools18/bin/sqlcmd -S {{serverName}} -U sa -P "$SA_PASSWORD" -C -b -i /init/logins.sql -v DatabaseName={{databaseName}} OwnerLogin={{ownerLogin}} RuntimeLogin={{runtimeLogin}} OwnerPassword="$OWNER_PASSWORD" RuntimePassword="$RUNTIME_PASSWORD"
                 """))
-            .WaitFor(server);
+            .WaitFor(database);
     }
-
-    private static ReferenceExpression LoginConnection(string dataSource, string database, string login, IResourceBuilder<ParameterResource> password) =>
-        ReferenceExpression.Create($"Server={dataSource};Database={database};User ID={login};Password={password};TrustServerCertificate=true");
 
     // Scripts run in Linux containers; source files may be checked out with CRLF on Windows.
     private static string Lf(string script) => script.Replace("\r\n", "\n").Replace("\r", "\n");
@@ -170,7 +193,7 @@ public static class ClpAppHost
         set -e
         ready=0
         for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
-          if kafka-topics --bootstrap-server kafka:9092 --list >/dev/null 2>&1; then
+          if kafka-topics --bootstrap-server kafka:9093 --list >/dev/null 2>&1; then
             ready=1
             break
           fi
@@ -180,9 +203,9 @@ public static class ClpAppHost
           echo "kafka did not accept topic commands" >&2
           exit 1
         fi
-        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic clp.policy.v1 --partitions 6 --replication-factor 1 --config retention.ms=1209600000
-        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic clp.ledger.v1 --partitions 6 --replication-factor 1 --config retention.ms=1209600000
-        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic clp.policy.v1.ledger.dlt --partitions 1 --replication-factor 1 --config retention.ms=-1
-        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic clp.ledger.v1.policy.dlt --partitions 1 --replication-factor 1 --config retention.ms=-1
+        kafka-topics --bootstrap-server kafka:9093 --create --if-not-exists --topic clp.policy.v1 --partitions 6 --replication-factor 1 --config retention.ms=1209600000
+        kafka-topics --bootstrap-server kafka:9093 --create --if-not-exists --topic clp.ledger.v1 --partitions 6 --replication-factor 1 --config retention.ms=1209600000
+        kafka-topics --bootstrap-server kafka:9093 --create --if-not-exists --topic clp.policy.v1.ledger.dlt --partitions 1 --replication-factor 1 --config retention.ms=-1
+        kafka-topics --bootstrap-server kafka:9093 --create --if-not-exists --topic clp.ledger.v1.policy.dlt --partitions 1 --replication-factor 1 --config retention.ms=-1
         """);
 }

@@ -1,10 +1,10 @@
-workspace "Commercial Lines Platform" "Learning architecture for Commercial Property quote, bind and premium booking." {
+workspace "Insurance Management Platform" "Learning architecture for Commercial Property quote, bind and premium booking." {
   !identifiers hierarchical
 
   model {
     broker = person "Broker" "Creates quotes and binds eligible policies."
     finance = person "Finance analyst" "Inspects booked premium and its rating-factor history."
-    platform = softwareSystem "Commercial Lines Platform" "Commercial Property quote-to-bind and auditable premium booking." {
+    platform = softwareSystem "Insurance Management Platform" "Commercial Property quote-to-bind and auditable premium booking." {
       policy = container "Policy Service" "Owns Account, Applicant, policy schedule, quote and bind workflow." ".NET / ASP.NET Core" {
         policyApi = component "Policy API" "Versioned quote, bind and read contracts." "HTTP"
         workflow = component "Quote and bind workflow" "Coordinates Rules and Rating; commits bound revision and outbox atomically." "Application"
